@@ -83,7 +83,7 @@ static struct
     {"q", "Exit NEMU", cmd_q},
     {"si", "Execute N commands step by step and then stop, when N is null, default = 1", cmd_si_N},
     {"info", "info r, Display register status; info w, Display monitor information", cmd_info}
-    //{ "x N EXPR", "Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format." },
+    //{"x", "Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format."}
     //{ "p EXPR", "Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr },
     //{ "w EXPR", "Pause program execution when the value of expression EXPR changes.", cmd_w_expr },
     //{ "d N", "Delete the watchpoint with sequence number N.", cmd_delete }
@@ -152,6 +152,10 @@ static int cmd_info(char *args)
   printf("Unknown info subcmd '%s'\n", arg);
   return 0;
 }
+
+// static int cmd_scanf_mem(char *args)
+// {
+// }
 
 void sdb_set_batch_mode()
 {
