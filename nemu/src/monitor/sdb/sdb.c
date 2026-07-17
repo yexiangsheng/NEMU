@@ -58,7 +58,7 @@ static int cmd_q(char *args)
 
 static int cmd_help(char *args);
 
-// static int cmd_si_N(char *args);
+static int cmd_si_N(char *args);
 
 // static int cmd_info(char *args1);
 
@@ -79,7 +79,7 @@ static struct
     {"help", "Display information about all supported commands", cmd_help},
     {"c", "Continue the execution of the program", cmd_c},
     {"q", "Exit NEMU", cmd_q},
-    //{"si", "Execute N commands step by step and then stop, when N is null, default = 1", cmd_si_N},
+    {"si", "Execute N commands step by step and then stop, when N is null, default = 1", cmd_si_N}
     //{ "info SUBCMD", "info r, Display register status; info w, Display monitor information", cmd_info },
     //{ "x N EXPR", "Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format." },
     //{ "p EXPR", "Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr },
@@ -120,12 +120,19 @@ static int cmd_help(char *args)
   return 0;
 }
 
-// static int cmd_si_N(char *args)
-// {
-//   char *arg = strtok(NULL, " ");
-//   cpu_exec(arg);
-//   return 0;
-// }
+static int cmd_si_N(char *args)
+{
+  char *arg = strtok(NULL, " ");
+
+  uint64_t n = 1;
+  if (arg != NULL)
+  {
+    n = (uint64_t)atoi(arg);
+  }
+
+  cpu_exec(n);
+  return 0;
+}
 
 void sdb_set_batch_mode()
 {
