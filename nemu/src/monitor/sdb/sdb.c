@@ -171,11 +171,14 @@ void sdb_mainloop()
     return;
   }
 
+  // eg: "si 10"
+  // 1. rl_gets(): read line command "si 10"
   for (char *str; (str = rl_gets()) != NULL;)
   {
     char *str_end = str + strlen(str);
 
     /* extract the first token as the command */
+    // 2. strtok(): extract token, cmd="si", args="10"
     char *cmd = strtok(str, " ");
     if (cmd == NULL)
     {
@@ -196,6 +199,8 @@ void sdb_mainloop()
     sdl_clear_event_queue();
 #endif
 
+    // 3. cmd_table: check table
+    // 4. handler: execute handler function
     int i;
     for (i = 0; i < NR_CMD; i++)
     {
