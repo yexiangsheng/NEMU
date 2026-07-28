@@ -55,7 +55,7 @@ static int cmd_c(char *args)
 
 static int cmd_q(char *args)
 {
-  cmd_c(NULL);
+  nemu_state.halt_ret = 0;
   return -1;
 }
 
