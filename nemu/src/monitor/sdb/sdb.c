@@ -55,6 +55,7 @@ static int cmd_c(char *args)
 
 static int cmd_q(char *args)
 {
+  cmd_c(NULL);
   return -1;
 }
 
@@ -149,6 +150,9 @@ static int cmd_info(char *args)
     isa_reg_display();
     return 0;
   }
+  else if (strcmp(arg, "w") == 0)
+  {
+  }
   printf("Unknown info subcmd '%s'\n", arg);
   return 0;
 }
@@ -200,7 +204,7 @@ void sdb_mainloop()
 #endif
 
     // 3. cmd_table: check table
-    // 4. handler: execute handler function
+    // 4. handler: if get the command in table, execute handler function
     int i;
     for (i = 0; i < NR_CMD; i++)
     {
