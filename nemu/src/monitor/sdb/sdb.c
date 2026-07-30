@@ -209,16 +209,16 @@ static int cmd_scanf_mem(char *args)
   else
   {
     Log("Scan men Succeed!!");
+    // Scanning n vddr
+    *arg2 = (uint32_t)strtol(arg2, NULL, 16);
+    for (int i = 0; i < n; i++)
+    {
+      uint32_t val = paddr_read(*arg2 + i * 4, 4);
+      printf("0x%08x: 0x%08x\n", *arg2 + i * 4, val);
+    }
     return 0;
   }
 
-  // Scanning n vddr
-  *arg2 = (uint32_t)strtol(arg2, NULL, 16);
-  for (int i = 0; i < n; i++)
-  {
-    uint32_t val = paddr_read(*arg2 + i * 4, 4);
-    printf("0x%08x: 0x%08x\n", *arg2 + i * 4, val);
-  }
   return 0;
 }
 
