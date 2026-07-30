@@ -167,24 +167,27 @@ static bool make_token(char *e)
   return true;
 }
 
-// bool check_parentheses()
-// {
-//   int stack[32];
-//   for(int i=0;i<32;i++)
-//   {
-//     uint8_t index = 0;
-//     if(tokens[i].type == TK_LEF){
-//       stack[index] = TK_LEF;
-//     }
-//     if(tokens[i].type == TK_RIG){
-//       stack[index] = TK_RIG;
-//       if(tokens[i].type == ){
-
-//       }
-//     }
-
-//   }
-// }
+bool check_parentheses(int p, int q)
+{
+  int stack = 0;
+  for (int i = 0; i < q; i++)
+  {
+    if (tokens[i].type == TK_LEF)
+    {
+      stack += 1;
+    }
+    if (tokens[i].type == TK_RIG)
+    {
+      stack -= 1;
+    }
+    p++;
+    if (p < q && stack == 0)
+    {
+      return false;
+    }
+  }
+  return true;
+}
 
 // int eval()
 // {
