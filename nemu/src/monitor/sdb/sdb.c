@@ -18,6 +18,7 @@
 // #include "include/isa.h"
 // #include "reg.c"
 #include <isa.h>
+#include <memory/paddr.h>
 #include <readline/history.h>
 #include <readline/readline.h>
 
@@ -65,7 +66,7 @@ static int cmd_si_N(char *args);
 
 static int cmd_info(char *args1);
 
-// static int cmd_scanf_mem(char *args);
+static int cmd_scanf_mem(char *args);
 
 // static int cmd_p_expr(char *args);
 
@@ -83,8 +84,8 @@ static struct
     {"c", "Continue the execution of the program", cmd_c},
     {"q", "Exit NEMU", cmd_q},
     {"si", "Execute N commands step by step and then stop, when N is null, default = 1", cmd_si_N},
-    {"info", "info r, Display register status; info w, Display monitor information", cmd_info}
-    //{"x", "Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format."}
+    {"info", "info r, Display register status; info w, Display monitor information", cmd_info},
+    {"x", "Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format.", cmd_scanf_mem}
     //{ "p EXPR", "Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr },
     //{ "w EXPR", "Pause program execution when the value of expression EXPR changes.", cmd_w_expr },
     //{ "d N", "Delete the watchpoint with sequence number N.", cmd_delete }
@@ -105,7 +106,7 @@ static int cmd_help(char *args)
     /* no argument given */
     for (i = 0; i < NR_CMD; i++)
     {
-      printf("%s - %s\n", cmd_table[i].name, cmd_table[i].description);
+      Log("%s - %s\n", cmd_table[i].name, cmd_table[i].description);
     }
   }
   else
@@ -114,11 +115,11 @@ static int cmd_help(char *args)
     {
       if (strcmp(arg, cmd_table[i].name) == 0)
       {
-        printf("%s - %s\n", cmd_table[i].name, cmd_table[i].description);
+        Log("%s - %s\n", cmd_table[i].name, cmd_table[i].description);
         return 0;
       }
     }
-    printf("Unknown command '%s'\n", arg);
+    Log("Unknown command '%s'\n", arg);
   }
   return 0;
 }
@@ -142,7 +143,7 @@ static int cmd_info(char *args)
   char *arg = strtok(NULL, " ");
   if (arg == NULL)
   {
-    printf("Usage: info SUBCMD\n");
+    Log("Usage: info SUBCMD\n");
     return 0;
   }
   if (strcmp(arg, "r") == 0)
@@ -150,16 +151,76 @@ static int cmd_info(char *args)
     isa_reg_display();
     return 0;
   }
-  else if (strcmp(arg, "w") == 0)
-  {
-  }
-  printf("Unknown info subcmd '%s'\n", arg);
+  // else if (strcmp(arg, "w") == 0)
+  // {
+  // }
+  Log("Unknown info subcmd '%s'\n", arg);
   return 0;
 }
 
-// static int cmd_scanf_mem(char *args)
-// {
-// }
+static bool is_hex(const char *s)
+{
+  if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))
+  {
+    s += 2;
+  }
+  else
+  {
+    return false; // 没有 0x 前缀
+  }
+  if (*s == '\0')
+    return false; // 只有 "0x"，不是有效数字
+  while (*s)
+  {
+    if (!isxdigit(*s)) // 逐位检查是否为 0-9, a-f, A-F
+      return false;
+    s++;
+  }
+  return true;
+}
+
+static int cmd_scanf_mem(char *args)
+{
+  // Get "n": input n menory vddr
+  char *arg1 = strtok(NULL, " ");
+  uint32_t n = 1;
+  if (arg1 == NULL)
+  {
+    Log("Usage: x N EXPR\n");
+    return 0;
+  }
+  else
+  {
+    n = (uint64_t)atoi(arg1);
+  }
+
+  // Get start vddr
+  char *arg2 = strtok(NULL, " ");
+  if (arg2 == NULL)
+  {
+    Log("Usage: x N EXPR\n");
+    return 0;
+  }
+  else if (!is_hex(arg2))
+  {
+    Log("Please usage hexadecimal\n");
+    return 0;
+  }
+  else
+  {
+    Log("Scan men Succeed!!");
+    return 0;
+  }
+
+  // Scanning n vddr
+  *arg2 = (uint32_t)strtol(arg2, NULL, 16);
+  for (int i = 0; i < n; i++)
+  {
+    uint32_t val = paddr_read(*arg2 + i * 4, 4);
+    printf("0x%08x: 0x%08x\n", *arg2 + i * 4, val);
+  }
+  return 0;
+}
 
 void sdb_set_batch_mode()
 {
@@ -220,7 +281,7 @@ void sdb_mainloop()
 
     if (i == NR_CMD)
     {
-      printf("Unknown command '%s'\n", cmd);
+      Log("Unknown command '%s'\n", cmd);
     }
   }
 }
