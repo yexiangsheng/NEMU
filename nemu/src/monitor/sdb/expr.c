@@ -144,7 +144,7 @@ static bool make_token(char *e)
           break;
         case TK_DEC:
           tokens[nr_token].type = TK_DEC;
-          assert(sizeof(rules[i].regex) >= 32);
+          assert(sizeof(*(rules[i].regex)) >= 32);
           strncpy(tokens[nr_token].str, substr_start, substr_len);
           tokens[nr_token].str[substr_len] = '\0';
           nr_token += 1;
