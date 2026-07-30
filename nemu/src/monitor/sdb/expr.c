@@ -189,6 +189,21 @@ bool check_parentheses(int p, int q)
   return true;
 }
 
+/* GDB 测试辅助: call test_paren("(1+2)", 0, 4) 一步完成 tokenize + 检查 */
+int test_paren(char *expr_str, int p, int q) {
+  if (!make_token(expr_str)) {
+    printf("make_token failed!\n");
+    return -1;
+  }
+  printf("nr_token = %d\n", nr_token);
+  for (int i = 0; i < nr_token; i++) {
+    printf("  tokens[%d]: type=%d, str=\"%s\"\n", i, tokens[i].type, tokens[i].str);
+  }
+  bool result = check_parentheses(p, q);
+  printf("check_parentheses(%d, %d) = %s\n", p, q, result ? "true" : "false");
+  return result;
+}
+
 // int eval()
 // {
 //   if (p > q)
