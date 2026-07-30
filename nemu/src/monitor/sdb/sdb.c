@@ -210,11 +210,11 @@ static int cmd_scanf_mem(char *args)
   {
     Log("Scan men Succeed!!");
     // Scanning n vddr
-    *arg2 = (uint32_t)strtol(arg2, NULL, 16);
+    paddr_t addr = (paddr_t)strtoul(arg2, NULL, 16);
     for (int i = 0; i < n; i++)
     {
-      uint32_t val = paddr_read(*arg2 + i * 4, 4);
-      printf("0x%08x: 0x%08x\n", *arg2 + i * 4, val);
+      uint32_t val = paddr_read(addr + i * 4, 4);
+      printf("0x%08x: 0x%08x\n", addr + i * 4, val);
     }
     return 0;
   }
