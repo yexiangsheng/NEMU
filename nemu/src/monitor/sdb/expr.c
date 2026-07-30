@@ -23,10 +23,16 @@
 enum
 {
   TK_NOTYPE = 256,
-  TK_EQ,
+  TK_EQ = 255,
 
   /* TODO: Add more token types */
-
+  TK_DEC = 1,
+  TK_ADD = 2,
+  TK_SUB = 3,
+  TK_MUL = 4,
+  TK_DIV = 5,
+  TK_LEF = 6,
+  TK_RIG = 7
 };
 
 static struct rule
@@ -39,10 +45,15 @@ static struct rule
      * Pay attention to the precedence level of different rules.
      */
 
-    {" +", TK_NOTYPE}, // spaces
-    {"\\+", '+'},      // plus
-    {"==", TK_EQ},     // equal
-};
+    {" +", TK_NOTYPE},  // spaces
+    {"==", TK_EQ},      // equal
+    {"\\+", TK_ADD},    // plus
+    {"[0-9]+", TK_DEC}, // How to express a decimel??
+    {"\\-", TK_SUB},
+    {"\\*", TK_MUL},
+    {"\\/", TK_DIV},
+    {"\\(", TK_LEF},
+    {"\\)", TK_RIG}};
 
 #define NR_REGEX ARRLEN(rules)
 
@@ -81,7 +92,7 @@ static bool make_token(char *e)
 {
   int position = 0;
   int i;
-  regmatch_t pmatch;
+  regmatch_t pmatch; //(struct ->int, int)
 
   nr_token = 0;
 
@@ -107,14 +118,45 @@ static bool make_token(char *e)
 
         switch (rules[i].token_type)
         {
+        case TK_ADD:
+          tokens[nr_token].type = TK_ADD;
+          nr_token += 1;
+          break;
+        case TK_SUB:
+          tokens[nr_token].type = TK_SUB;
+          nr_token += 1;
+          break;
+        case TK_MUL:
+          tokens[nr_token].type = TK_MUL;
+          nr_token += 1;
+          break;
+        case TK_DIV:
+          tokens[nr_token].type = TK_DIV;
+          nr_token += 1;
+          break;
+        case TK_LEF:
+          tokens[nr_token].type = TK_LEF;
+          nr_token += 1;
+          break;
+        case TK_RIG:
+          tokens[nr_token].type = TK_RIG;
+          nr_token += 1;
+          break;
+        case TK_DEC:
+          tokens[nr_token].type = TK_DEC;
+          assert(sizeof(rules[i].regex) >= 32);
+          strncpy(tokens[nr_token].str, substr_start, substr_len);
+          tokens[nr_token].str[substr_len] = '\0';
+          nr_token += 1;
+          break;
         default:
-          TODO();
+          printf("It is space!!");
         }
-
         break;
       }
     }
 
+    // Match failture !!
     if (i == NR_REGEX)
     {
       printf("no match at position %d\n%s\n%*.s^\n", position, e, position, "");
@@ -125,6 +167,51 @@ static bool make_token(char *e)
   return true;
 }
 
+// bool check_parentheses()
+// {
+//   int stack[32];
+//   for(int i=0;i<32;i++)
+//   {
+//     uint8_t index = 0;
+//     if(tokens[i].type == TK_LEF){
+//       stack[index] = TK_LEF;
+//     }
+//     if(tokens[i].type == TK_RIG){
+//       stack[index] = TK_RIG;
+//       if(tokens[i].type == ){
+
+//       }
+//     }
+
+//   }
+// }
+
+// int eval()
+// {
+//   if (p > q)
+//   {
+//     /* Bad expression */
+//   }
+//   else if (p == q)
+//   {
+//     /* Single token.
+//      * For now this token should be a number.
+//      * Return the value of the number.
+//      */
+//   }
+//   else if (check_parentheses(p, q) == true)
+//   {
+//     /* The expression is surrounded by a matched pair of parentheses.
+//      * If that is the case, just throw away the parentheses.
+//      */
+//     return eval(p + 1, q - 1);
+//   }
+//   else
+//   {
+//     /* We should do more things here. */
+//   }
+// }
+
 word_t expr(char *e, bool *success)
 {
   if (!make_token(e))
@@ -132,7 +219,6 @@ word_t expr(char *e, bool *success)
     *success = false;
     return 0;
   }
-
   /* TODO: Insert codes to evaluate the expression. */
   TODO();
 
