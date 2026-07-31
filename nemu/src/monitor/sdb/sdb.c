@@ -80,15 +80,15 @@ static struct
   const char *description;
   int (*handler)(char *);
 } cmd_table[] = {
-    {"help", "Display information about all supported commands", cmd_help},
-    {"c", "Continue the execution of the program", cmd_c},
-    {"q", "Exit NEMU", cmd_q},
-    {"si", "Execute N commands step by step and then stop, when N is null, default = 1", cmd_si_N},
-    {"info", "info r, Display register status; info w, Display monitor information", cmd_info},
-    {"x", "Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format.", cmd_scanf_mem},
-    {"p EXPR", "Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr}
-    //{ "w EXPR", "Pause program execution when the value of expression EXPR changes.", cmd_w_expr },
-    //{ "d N", "Delete the watchpoint with sequence number N.", cmd_delete }
+    {"help", "'help',Display information about all supported commands", cmd_help},
+    {"c", "'c',Continue the execution of the program", cmd_c},
+    {"q", "'q',Exit NEMU", cmd_q},
+    {"si", "'si N',Execute N commands step by step and then stop, when N is null, default = 1", cmd_si_N},
+    {"info", "'info r', Display register status; 'info w', Display monitor information", cmd_info},
+    {"x", "'x N EXPR',Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format.", cmd_scanf_mem},
+    {"p", "'p EXPR',Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr}
+    //{ "w", "Pause program execution when the value of expression EXPR changes.", cmd_w_expr },
+    //{ "d", "Delete the watchpoint with sequence number N.", cmd_delete }
     /* TODO: Add more commands */
 
 };
