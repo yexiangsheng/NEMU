@@ -14,6 +14,7 @@
  ***************************************************************************************/
 
 #include "sdb.h"
+#include <utils.h>
 
 #define NR_WP 32
 
@@ -24,6 +25,7 @@ typedef struct watchpoint
 
   /* TODO: Add more members if necessary */
   char *watch_num;
+  word_t prev_val;
 
 } WP;
 
@@ -91,10 +93,13 @@ void free_wp(WP *wp)
   free_num++;
 }
 
-void get_new_wp(char *expr)
+void get_new_wp(char *e)
 {
+  bool success = true;
   head = new_wp();
-  head->watch_num = expr;
+  head->watch_num = e;
+  head->prev_val = expr(e, &success);
+  printf("Hardware watchpoint %d: %s\n\n", head->NO, e);
 }
 
 void watchpoint_check()
@@ -103,15 +108,16 @@ void watchpoint_check()
   for (int i = 0; i < head_num; i++)
   {
     bool success = true;
-    word_t res = expr(ite->next->watch_num, &success);
-    char buf[32];
-    sprintf(buf, "%d", res);
-    if (!strcmp(buf, ite->next->watch_num))
+    word_t new_val = expr(ite->next->watch_num, &success);
+    if (new_val != ite->next->prev_val)
     {
+      printf("Hardware watchpoint %d: %s\n\n", ite->next->NO, ite->next->watch_num);
+      printf("Old value = %u\n", ite->next->prev_val);
+      printf("New value = %u\n\n", new_val);
+      ite->next->prev_val = new_val;
       nemu_state.state = NEMU_STOP;
     }
     ite = ite->next;
   }
-  Log("Interpret by watchpoint changed!\n");
   return;
 }
