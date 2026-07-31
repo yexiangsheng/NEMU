@@ -191,6 +191,13 @@ config DIFFTEST_REF_NAME
   default "kvm" if DIFFTEST_REF_KVM
   default "spike" if DIFFTEST_REF_SPIKE
   default "none"
+
+config WATCHPOINT
+  bool "Enable watchpoint"
+  default y
+  help
+    Enable watchpoint checking in each CPU execution loop.
+    Watchpoint allows you to monitor expression value changes.
 endmenu
 
 if MODE_SYSTEM

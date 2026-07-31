@@ -23,6 +23,7 @@ typedef struct watchpoint
   struct watchpoint *next;
 
   /* TODO: Add more members if necessary */
+  char *watch_num;
 
 } WP;
 
@@ -37,6 +38,7 @@ void init_wp_pool()
   {
     wp_pool[i].NO = i;
     wp_pool[i].next = (i == NR_WP - 1 ? NULL : &wp_pool[i + 1]);
+    wp_pool[i].watch_num = NULL;
     free_num++;
   }
 
@@ -83,6 +85,33 @@ void free_wp(WP *wp)
   {
     free_ = temp;
   }
+
+  free_->watch_num = NULL;
   head_num--;
   free_num++;
+}
+
+void get_new_wp(char *expr)
+{
+  head = new_wp();
+  head->watch_num = expr;
+}
+
+void watchpoint_check()
+{
+  WP *ite = head;
+  for (int i = 0; i < head_num; i++)
+  {
+    bool success = true;
+    word_t res = expr(ite->next->watch_num, &success);
+    char buf[32];
+    sprintf(buf, "%d", res);
+    if (!strcmp(buf, ite->next->watch_num))
+    {
+      nemu_state.state = NEMU_STOP;
+    }
+    ite = ite->next;
+  }
+  Log("Interpret by watchpoint changed!");
+  return;
 }
