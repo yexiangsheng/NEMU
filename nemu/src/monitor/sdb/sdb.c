@@ -237,6 +237,7 @@ static int cmd_w_expr(char *args)
   if (arg != NULL)
   {
     get_new_wp(arg);
+    // Log("Already set watchpoint in %");
   }
   else
   {
