@@ -266,11 +266,17 @@ static uint32_t eval(int p, int q, bool *success)
     switch (tokens[p].type)
     {
     case TK_DEC:
-      return (uint32_t)strtoul(tokens[p].str, NULL, 10);
+      uint32_t res1 = (uint32_t)strtoul(tokens[p].str, NULL, 10);
+      Log("The result is %d", res1);
+      return res1;
     case TK_HEX:
-      return (uint32_t)strtoul(tokens[p].str, NULL, 16);
+      uint32_t res2 = (uint32_t)strtoul(tokens[p].str, NULL, 16);
+      Log("The result is %d", res2);
+      return res2;
     case TK_REG:
-      return isa_reg_str2val(tokens[p].str, success);
+      word_t reg_men = isa_reg_str2val(tokens[p].str, success);
+      // printf("Finally register %-4s: " FMT_WORD "\n", regs[i], gpr(i));
+      return reg_men;
     default:
       *success = false;
       return 0;

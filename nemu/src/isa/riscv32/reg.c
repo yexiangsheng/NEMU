@@ -37,7 +37,7 @@ word_t isa_reg_str2val(const char *s, bool *success)
     if (!strcmp(s, regs[i]))
     {
       *success = true;
-      printf("%-4s: " FMT_WORD "\n", regs[i], gpr(i));
+      printf("inside register %-4s: " FMT_WORD "\n", regs[i], gpr(i));
       return gpr(i);
     }
   }
