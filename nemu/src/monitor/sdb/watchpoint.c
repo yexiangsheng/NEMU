@@ -112,15 +112,28 @@ void watchpoint_check()
     word_t new_val = expr(ite->next->watch_num, &success);
     if (new_val != ite->next->prev_val)
     {
-      printf("Hardware watchpoint %d: %s\n\n", ite->next->NO, ite->next->watch_num);
-      printf("Old value = %u\n", ite->next->prev_val);
-      printf("New value = %u\n\n", new_val);
       ite->next->prev_val = new_val;
       nemu_state.state = NEMU_STOP;
     }
     ite = ite->next;
   }
   return;
+}
+
+void info_watchpoints()
+{
+  if (head == NULL)
+  {
+    printf("No watchpoints.\n");
+    return;
+  }
+  printf("Num     Type           What\n");
+  WP *ite = head;
+  for (int i = 0; i < head_num; i++)
+  {
+    printf("%-8d%-15s%s\n", ite->next->NO, "hw watchpoint", ite->next->watch_num);
+    ite = ite->next;
+  }
 }
 
 void delete_wp(int n)

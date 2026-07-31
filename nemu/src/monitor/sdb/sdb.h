@@ -24,6 +24,7 @@ word_t expr(char *e, bool *success);
 void watchpoint_check();
 void get_new_wp(char *expr);
 void delete_wp(int n);
+void info_watchpoints();
 #endif
 
 #endif

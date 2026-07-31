@@ -151,9 +151,11 @@ static int cmd_info(char *args)
     isa_reg_display();
     return 0;
   }
-  // else if (strcmp(arg, "w") == 0)
-  // {
-  // }
+  if (strcmp(arg, "w") == 0)
+  {
+    info_watchpoints();
+    return 0;
+  }
   Log("Unknown info subcmd '%s'\n", arg);
   return 0;
 }
