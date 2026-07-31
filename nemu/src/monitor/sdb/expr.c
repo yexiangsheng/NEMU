@@ -26,26 +26,26 @@ enum
   TK_NOTYPE = 256,
 
   /* 操作数 */
-  TK_DEC = 257,   // 十进制数字
-  TK_HEX = 258,   // 十六进制数字 (0x...)
-  TK_REG = 259,   // 寄存器 ($0, ra, sp, ...)
+  TK_DEC = 257, // 十进制数字
+  TK_HEX = 258, // 十六进制数字 (0x...)
+  TK_REG = 259, // 寄存器 ($0, ra, sp, ...)
 
   /* 二元运算符（优先级从低到高） */
-  TK_AND = 260,   // &&
-  TK_EQ  = 261,   // ==
-  TK_NEQ = 262,   // !=
-  TK_ADD = 263,   // +
-  TK_SUB = 264,   // -
-  TK_MUL = 265,   // *
-  TK_DIV = 266,   // /
+  TK_AND = 260, // &&
+  TK_EQ = 261,  // ==
+  TK_NEQ = 262, // !=
+  TK_ADD = 263, // +
+  TK_SUB = 264, // -
+  TK_MUL = 265, // *
+  TK_DIV = 266, // /
 
   /* 一元运算符 */
   TK_DEREF = 267, // * 解引用
-  TK_NEG   = 268, // - 取反
+  TK_NEG = 268,   // - 取反
 
   /* 括号 */
-  TK_LEF = 269,   // (
-  TK_RIG = 270,   // )
+  TK_LEF = 269, // (
+  TK_RIG = 270, // )
 };
 
 static struct rule
@@ -55,18 +55,18 @@ static struct rule
 } rules[] = {
     /* 规则按顺序尝试——长匹配/特化模式放前面 */
 
-    {" +", TK_NOTYPE},                       // 空格（跳过）
+    {" +", TK_NOTYPE}, // 空格（跳过）
 
     /* 多字符运算符优先 */
-    {"==", TK_EQ},                           // 相等
-    {"!=", TK_NEQ},                          // 不等
-    {"&&", TK_AND},                          // 逻辑与
+    {"==", TK_EQ},  // 相等
+    {"!=", TK_NEQ}, // 不等
+    {"&&", TK_AND}, // 逻辑与
 
     /* 十六进制优先于十进制（否则 0x1 的 "0" 先被 TK_DEC 匹配） */
-    {"0[xX][0-9a-fA-F]+", TK_HEX},           // 十六进制
+    {"0[xX][0-9a-fA-F]+", TK_HEX}, // 十六进制
 
     /* 十进制 */
-    {"[0-9]+", TK_DEC},                      // 十进制
+    {"[0-9]+", TK_DEC}, // 十进制
 
     /* 寄存器：必须放在 [0-9]+ 等可能部分匹配的规则之后，但实际上
      * 寄存器名以 $ 或字母开头，不会与数字规则冲突。放在数字之后
@@ -236,9 +236,12 @@ static bool check_parentheses(int p, int q)
   int depth = 0;
   for (int i = p; i <= q; i++)
   {
-    if (tokens[i].type == TK_LEF) depth++;
-    if (tokens[i].type == TK_RIG) depth--;
-    if (depth == 0 && i < q) return false; /* 过早闭合 */
+    if (tokens[i].type == TK_LEF)
+      depth++;
+    if (tokens[i].type == TK_RIG)
+      depth--;
+    if (depth == 0 && i < q)
+      return false; /* 过早闭合 */
   }
   return depth == 0;
 }
@@ -247,7 +250,8 @@ static bool check_parentheses(int p, int q)
 
 static uint32_t eval(int p, int q, bool *success)
 {
-  if (!*success) return 0;
+  if (!*success)
+    return 0;
 
   /* 非法区间 */
   if (p > q)
@@ -283,7 +287,8 @@ static uint32_t eval(int p, int q, bool *success)
   if (tokens[p].type == TK_DEREF)
   {
     uint32_t addr = eval(p + 1, q, success);
-    if (!*success) return 0;
+    if (!*success)
+      return 0;
     return paddr_read(addr, 4);
   }
   if (tokens[p].type == TK_NEG)
@@ -298,9 +303,18 @@ static uint32_t eval(int p, int q, bool *success)
 
   for (int i = q; i >= p; i--)
   {
-    if (tokens[i].type == TK_RIG) { depth++; continue; }
-    if (tokens[i].type == TK_LEF) { depth--; continue; }
-    if (depth > 0) continue; /* 跳过括号内部 */
+    if (tokens[i].type == TK_RIG)
+    {
+      depth++;
+      continue;
+    }
+    if (tokens[i].type == TK_LEF)
+    {
+      depth--;
+      continue;
+    }
+    if (depth > 0)
+      continue; /* 跳过括号内部 */
 
     int prec = precedence(tokens[i].type);
     if (prec > 0 && prec <= min_prec)
@@ -318,7 +332,8 @@ static uint32_t eval(int p, int q, bool *success)
 
   uint32_t val1 = eval(p, op - 1, success);
   uint32_t val2 = eval(op + 1, q, success);
-  if (!*success) return 0;
+  if (!*success)
+    return 0;
 
   switch (tokens[op].type)
   {
@@ -335,7 +350,11 @@ static uint32_t eval(int p, int q, bool *success)
   case TK_MUL:
     return val1 * val2;
   case TK_DIV:
-    if (val2 == 0) { *success = false; return 0; }
+    if (val2 == 0)
+    {
+      *success = false;
+      return 0;
+    }
     return (int32_t)val1 / (int32_t)val2; /* 有符号除法 */
   default:
     *success = false;
@@ -382,106 +401,4 @@ word_t expr(char *e, bool *success)
 
   /* 4. 递归求值 */
   return eval(0, nr_token - 1, success);
-}
-
-/* ================================================================
- *  expr 测试函数
- *  GDB 中调用:
- *    call test_expr("1+2", 3)    — 单测
- *    call test_expr_all()        — 全测
- * ================================================================ */
-
-static int test_one(const char *s, uint32_t expected)
-{
-  bool success = false;
-  uint32_t result = expr((char *)s, &success);
-
-  printf("expr(\"%s\") = %u (0x%08x), success=%s, expect=%u",
-         s, result, result,
-         success ? "true" : "false",
-         expected);
-
-  if (!success)
-  {
-    printf("  [FAIL] expr returned failure\n");
-    return 1;
-  }
-  if (result != expected)
-  {
-    printf("  [FAIL] result mismatch\n");
-    return 1;
-  }
-  printf("  [PASS]\n");
-  return 0;
-}
-
-int test_expr(const char *s, uint32_t expected)
-{
-  printf("=== test_expr ===\n");
-  int fail = test_one(s, expected);
-  printf("=== %s ===\n", fail ? "FAILED" : "PASSED");
-  return fail;
-}
-
-int test_expr_all(void)
-{
-  printf("=== test_expr_all ===\n");
-  int fail = 0;
-
-  /* 单数字 */
-  fail += test_one("0",   0);
-  fail += test_one("1",   1);
-  fail += test_one("123", 123);
-
-  /* 加减乘除 */
-  fail += test_one("1+2",   3);
-  fail += test_one("5-3",   2);
-  fail += test_one("2*3",   6);
-  fail += test_one("8/2",   4);
-
-  /* 括号 */
-  fail += test_one("(1+2)",     3);
-  fail += test_one("(1+2)*3",   9);
-  fail += test_one("2*(3+4)",  14);
-  fail += test_one("((1+2))",   3);
-
-  /* 优先级 */
-  fail += test_one("1+2*3",   7);   // 1+(2*3)
-  fail += test_one("2*3+4",  10);   // (2*3)+4
-  fail += test_one("2+3*4",  14);
-  fail += test_one("1-2+3",   2);   // left assoc
-
-  /* 空格 */
-  fail += test_one(" 1 + 2 ",       3);
-  fail += test_one("( 1 + 2 ) * 3", 9);
-
-  /* 比较 */
-  fail += test_one("1==1",   1);
-  fail += test_one("1==2",   0);
-  fail += test_one("1!=2",   1);
-  fail += test_one("2!=2",   0);
-
-  /* 逻辑与 */
-  fail += test_one("1&&1",   1);
-  fail += test_one("1&&0",   0);
-  fail += test_one("0&&1",   0);
-  fail += test_one("2&&3",   1);
-
-  /* 一元取反 */
-  fail += test_one("-1",     0xffffffff);
-  fail += test_one("-0",     0);
-  fail += test_one("1+-2",   0xffffffff);
-  fail += test_one("-(1+2)", 0xfffffffd);
-
-  /* 组合 */
-  fail += test_one("1+2==3",     1);
-  fail += test_one("(1+2)*3!=9", 0);
-  fail += test_one("1+2*3==7",   1);
-
-  /* 解引用 & 寄存器（需要 NEMU 运行中才能正确测试，这里留空框架） */
-  // fail += test_one("*0x80000000", ???);  // 依赖实际内存
-  // fail += test_one("$0", 0);             // RISC-V zero 寄存器
-
-  printf("=== total failures: %d ===\n", fail);
-  return fail;
 }
