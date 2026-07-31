@@ -70,7 +70,7 @@ static int cmd_scanf_mem(char *args);
 
 static int cmd_p_expr(char *args);
 
-// static int cmd_w_expr(char *args);
+static int cmd_w_expr(char *args);
 
 // static int cmd_delete(char *args);
 
@@ -86,8 +86,8 @@ static struct
     {"si", "'si N',Execute N commands step by step and then stop, when N is null, default = 1", cmd_si_N},
     {"info", "'info r', Display register status; 'info w', Display monitor information", cmd_info},
     {"x", "'x N EXPR',Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format.", cmd_scanf_mem},
-    {"p", "'p EXPR',Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr}
-    //{ "w", "Pause program execution when the value of expression EXPR changes.", cmd_w_expr },
+    {"p", "'p EXPR',Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr},
+    {"w", "'w EXPR',Pause program execution when the value of expression EXPR changes.", cmd_w_expr}
     //{ "d", "Delete the watchpoint with sequence number N.", cmd_delete }
     /* TODO: Add more commands */
 
@@ -228,7 +228,18 @@ static int cmd_p_expr(char *args)
   bool success = false;
 
   uint32_t res = expr(arg, &success);
+  snprintf(arg, 32, "The finally result is %u", res);
+  return success;
+}
+
+static int cmd_w_expr(char *args)
+{
+  char *arg = strtok(NULL, " ");
+  bool success = false;
+  uint32_t res = expr(arg, &success);
+
   snprintf(arg, 32, "%u", res);
+
   return success;
 }
 
