@@ -318,9 +318,6 @@ word_t expr(char *e, bool *success)
     return 0;
   }
 
-  /* 2. 二次标记：区分 *（乘法/解引用）和 -（减法/取反）
-   *    规则：如果 * 或 - 出现在表达式开头，或者前面不是操作数/右括号，
-   *    则视为一元运算符（TK_REF / TK_NEG）。*/
   for (int i = 0; i < nr_token; i++)
   {
     bool at_start = (i == 0);
@@ -337,14 +334,12 @@ word_t expr(char *e, bool *success)
     }
   }
 
-  /* 3. 空表达式 */
   if (nr_token == 0)
   {
     *success = false;
     return 0;
   }
 
-  /* 4. 递归求值 */
   *success = true;
   return eval(0, nr_token - 1);
 }
