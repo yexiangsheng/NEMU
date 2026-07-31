@@ -332,34 +332,37 @@ static uint32_t eval(int p, int q, bool *success)
 
   uint32_t val1 = eval(p, op - 1, success);
   uint32_t val2 = eval(op + 1, q, success);
+  uint32_t res;
   if (!*success)
     return 0;
 
   switch (tokens[op].type)
   {
   case TK_AND:
-    return (val1 != 0 && val2 != 0) ? 1 : 0;
+    res = (val1 != 0 && val2 != 0) ? 1 : 0;
   case TK_EQ:
-    return (val1 == val2) ? 1 : 0;
+    res = (val1 == val2) ? 1 : 0;
   case TK_NEQ:
-    return (val1 != val2) ? 1 : 0;
+    res = (val1 != val2) ? 1 : 0;
   case TK_ADD:
-    return val1 + val2;
+    res = val1 + val2;
   case TK_SUB:
-    return val1 - val2;
+    res = val1 - val2;
   case TK_MUL:
-    return val1 * val2;
+    res = val1 * val2;
   case TK_DIV:
     if (val2 == 0)
     {
       *success = false;
       return 0;
     }
-    return (int32_t)val1 / (int32_t)val2; /* 有符号除法 */
+    res = (int32_t)val1 / (int32_t)val2; /* 有符号除法 */
   default:
     *success = false;
     return 0;
   }
+  printf("EXPR is result = %d", res);
+  return res;
 }
 
 /* ---- 对外入口 ---- */
