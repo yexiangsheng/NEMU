@@ -34,17 +34,15 @@ word_t isa_reg_str2val(const char *s, bool *success)
 {
   for (int i = 0; i < 32; i++)
   {
-    if (strncmp(s, regs[i], 2 * sizeof(char)))
+    if (!strcmp(s, regs[i]))
     {
       *success = true;
       printf("%-4s: " FMT_WORD "\n", regs[i], gpr(i));
       return gpr(i);
     }
-    else
-    {
-      *success = false;
-      assert("No register has match!!");
-    }
   }
+  *success = false;
+  Log("No register has match!!");
+  assert(0);
   return 0;
 }
