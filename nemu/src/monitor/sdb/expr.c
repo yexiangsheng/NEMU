@@ -293,8 +293,6 @@ uint32_t eval(int p, int q)
         return 0;
       }
       return val2 != 0 ? 1 : 0;
-    case TK_REF:
-
     default:
       assert(0);
     }
