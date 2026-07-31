@@ -68,7 +68,7 @@ static int cmd_info(char *args1);
 
 static int cmd_scanf_mem(char *args);
 
-// static int cmd_p_expr(char *args);
+static int cmd_p_expr(char *args);
 
 // static int cmd_w_expr(char *args);
 
@@ -85,8 +85,8 @@ static struct
     {"q", "Exit NEMU", cmd_q},
     {"si", "Execute N commands step by step and then stop, when N is null, default = 1", cmd_si_N},
     {"info", "info r, Display register status; info w, Display monitor information", cmd_info},
-    {"x", "Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format.", cmd_scanf_mem}
-    //{ "p EXPR", "Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr },
+    {"x", "Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format.", cmd_scanf_mem},
+    {"p EXPR", "Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr}
     //{ "w EXPR", "Pause program execution when the value of expression EXPR changes.", cmd_w_expr },
     //{ "d N", "Delete the watchpoint with sequence number N.", cmd_delete }
     /* TODO: Add more commands */
@@ -195,13 +195,13 @@ static int cmd_scanf_mem(char *args)
   }
 
   // Get start vddr
-  char *arg2 = strtok(NULL, " ");
-  if (arg2 == NULL)
+  char *expr = strtok(NULL, " ");
+  if (expr == NULL)
   {
     Log("Usage: x N EXPR\n");
     return 0;
   }
-  else if (!is_hex(arg2))
+  else if (!is_hex(expr))
   {
     Log("Please usage hexadecimal\n");
     return 0;
@@ -210,7 +210,7 @@ static int cmd_scanf_mem(char *args)
   {
     Log("Scan men Succeed!!");
     // Scanning n vddr
-    paddr_t addr = (paddr_t)strtoul(arg2, NULL, 16);
+    paddr_t addr = (paddr_t)strtoul(expr, NULL, 16);
     for (int i = 0; i < n; i++)
     {
       uint32_t val = paddr_read(addr + i * 4, 4);
@@ -220,6 +220,16 @@ static int cmd_scanf_mem(char *args)
   }
 
   return 0;
+}
+
+static int cmd_p_expr(char *args)
+{
+  char *arg = strtok(NULL, " ");
+  bool success = false;
+
+  uint32_t res = expr(arg, &success);
+  snprintf(arg, 32, "%u", res);
+  return success;
 }
 
 void sdb_set_batch_mode()
