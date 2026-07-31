@@ -344,3 +344,114 @@ word_t expr(char *e, bool *success)
   *success = true;
   return eval(0, nr_token - 1);
 }
+
+/* ================================================================
+ *  expr 测试函数
+ *  用法：
+ *    1. GDB 中:  call test_expr("1+2", 3)
+ *       测试单个表达式，期望十进制值 expected（仅低位比较，兼容 hex 默认）
+ *    2. GDB 中:  call test_expr_all()
+ *       运行预设的全部测试用例
+ * ================================================================ */
+
+/* 单个测试：expr(expr_str) == expected ? */
+static int test_one(const char *s, uint32_t expected)
+{
+  bool success = false;
+  uint32_t result = expr((char *)s, &success);
+
+  printf("expr(\"%s\") = %u (0x%x), success=%s, expect=%u (0x%x)",
+         s, result, result,
+         success ? "true" : "false",
+         expected, expected);
+
+  if (!success)
+  {
+    printf("  [FAIL] expr returned failure\n");
+    return 1;
+  }
+  if (result != expected)
+  {
+    printf("  [FAIL] result mismatch\n");
+    return 1;
+  }
+  printf("  [PASS]\n");
+  return 0;
+}
+
+/* 以下两个是外部可见的入口，GDB 可 call */
+
+/* 测试单个表达式，expected 是十进制（strtoul base 16 下的值） */
+int test_expr(const char *s, uint32_t expected)
+{
+  printf("=== test_expr ===\n");
+  int fail = test_one(s, expected);
+  printf("=== %s ===\n", fail ? "FAILED" : "PASSED");
+  return fail;
+}
+
+/* 运行全部预设测试用例 */
+int test_expr_all(void)
+{
+  printf("=== test_expr_all ===\n");
+  int fail = 0;
+
+  /* 注：NEMU expr 默认用 strtoul(..., 16) 解析数字，
+   *     所以 "10" = 16（不是 10）
+   */
+
+  /* ---- 单数字 ---- */
+  fail += test_one("0",   0x0);
+  fail += test_one("1",   0x1);
+  fail += test_one("10",  0x10);    // 十六进制：10 = 16
+
+  /* ---- 加减乘除 ---- */
+  fail += test_one("1+2",     0x3);
+  fail += test_one("5-3",     0x2);
+  fail += test_one("2*3",     0x6);
+  fail += test_one("8/2",     0x4);
+
+  /* ---- 括号 ---- */
+  fail += test_one("(1+2)",       0x3);
+  fail += test_one("(1+2)*3",     0x9);  // 3*3=9
+  fail += test_one("2*(3+4)",     0xe);  // 2*7=14=0xe
+  fail += test_one("((1+2))",     0x3);
+
+  /* ---- 运算符优先级 ---- */
+  fail += test_one("1+2*3",     0x7);   // 1+6=7
+  fail += test_one("2*3+4",     0xa);   // 6+4=10=0xa
+  fail += test_one("2+3*4",     0xe);   // 2+12=14=0xe
+  fail += test_one("1-2+3",     0x2);   // left assoc: (1-2)+3=2
+
+  /* ---- 空格 ---- */
+  fail += test_one(" 1 + 2 ", 0x3);
+  fail += test_one("( 1 + 2 ) * 3", 0x9);
+
+  /* ---- 比较运算 ---- */
+  fail += test_one("1==1",       0x1);  // true
+  fail += test_one("1==2",       0x0);  // false
+  fail += test_one("1!=2",       0x1);  // true
+  fail += test_one("2!=2",       0x0);  // false
+
+  /* ---- 逻辑与 ---- */
+  fail += test_one("1&&1",       0x1);
+  fail += test_one("1&&0",       0x0);
+  fail += test_one("0&&1",       0x0);
+  fail += test_one("0&&0",       0x0);
+  fail += test_one("2&&3",       0x1);  // both non-zero
+
+  /* ---- 一元取反 ---- */
+  fail += test_one("-1",         0xffffffff);  // -(1)
+  fail += test_one("-0",         0x0);
+  fail += test_one("1+-2",       0xffffffff);  // 1+(-2)
+  fail += test_one("-(1+2)",     0xfffffffd);  // -(3)
+
+  /* ---- 组合 ---- */
+  fail += test_one("1+2==3",     0x1);  // (1+2)==3
+  fail += test_one("(1+2)*3!=9", 0x0);  // 9!=9 is false
+  fail += test_one("1+2*3==7",   0x1);  // 1+6==7
+
+  printf("=== test_expr_all: %d/%d failed ===\n", fail, fail ? 1 : 0 /* just count */);
+  printf("=== total failures: %d ===\n", fail);
+  return fail;
+}
