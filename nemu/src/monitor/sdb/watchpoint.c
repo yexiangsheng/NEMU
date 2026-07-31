@@ -133,6 +133,7 @@ void delete_wp(int n)
       head = head->next;
       ite->next = free_;
       free_ = ite;
+      Log("Free");
     }
     else if (ite->next->NO == n)
     {
@@ -140,10 +141,12 @@ void delete_wp(int n)
       ite->next->next = temp->next;
       temp->next = free_;
       free_ = temp;
+      Log("Free");
     }
     else
     {
       ite = ite->next;
     }
   }
+  return;
 }
