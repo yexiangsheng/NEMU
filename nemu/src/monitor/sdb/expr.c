@@ -319,6 +319,7 @@ word_t expr(char *e, bool *success)
     if (tokens[i].type == '*' && (i == 0 || tokens[i - 1].type == TK_REF))
     {
       tokens[i].type = TK_REF;
+      isa_reg_str2val(tokens[i].str, success);
     }
     // negative
     if (tokens[i].type == '-' && (i == 0 || tokens[i - 1].type == TK_SUB))

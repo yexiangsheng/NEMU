@@ -24,12 +24,27 @@ const char *regs[] = {
 
 void isa_reg_display()
 {
-  for (int i = 0; i < 32; i++) {
+  for (int i = 0; i < 32; i++)
+  {
     printf("%-4s: " FMT_WORD "\n", regs[i], gpr(i));
   }
 }
 
 word_t isa_reg_str2val(const char *s, bool *success)
 {
+  for (int i = 0; i < 32; i++)
+  {
+    if (strncmp(s, regs[i], 2 * sizeof(char)))
+    {
+      *success = true;
+      printf("%-4s: " FMT_WORD "\n", regs[i], gpr(i));
+      return gpr(i);
+    }
+    else
+    {
+      *success = false;
+      assert("No register has match!!");
+    }
+  }
   return 0;
 }
