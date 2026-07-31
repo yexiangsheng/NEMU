@@ -14,6 +14,7 @@
  ***************************************************************************************/
 
 #include <isa.h>
+#include <memory/paddr.h>
 
 /* We use the POSIX regex functions to process regular expressions.
  * Type 'man regex' for more information about POSIX regex functions.
@@ -23,23 +24,29 @@
 enum
 {
   TK_NOTYPE = 256,
-  TK_EQ = 255,
 
-  /* TODO: Add more token types */
-  TK_DEC = 10,
-  TK_ADD = 43,
-  TK_SUB = 45,
-  TK_MUL = 42,
-  TK_DIV = 47,
-  TK_LEF = 40,
-  TK_RIG = 41,
+  /* operands */
+  TK_DEC,   // 257: decimal number
+  TK_HEX,   // 258: hex number (0x...)
+  TK_REG,   // 259: register ($0, ra, sp, ...)
 
-  TK_EQQ = 254,
-  TK_NEQ = 253,
-  TK_AND = 252,
-  TK_REF = 251,
+  /* binary operators (low to high precedence) */
+  TK_AND,   // 260: &&
+  TK_EQ,    // 261: ==
+  TK_NEQ,   // 262: !=
+  TK_ADD,   // 263: +
+  TK_SUB,   // 264: -
+  TK_MUL,   // 265: *
+  TK_DIV,   // 266: /
 
-  TK_NEG = 200
+  /* unary operators */
+  TK_DEREF, // 267: * (pointer dereference)
+  TK_NEG,   // 268: - (arithmetic negation)
+  TK_NOT,   // 269: ! (logical not)
+
+  /* parentheses */
+  TK_LEF,   // 270: (
+  TK_RIG,   // 271: )
 };
 
 static struct rule
@@ -47,23 +54,38 @@ static struct rule
   const char *regex;
   int token_type;
 } rules[] = {
-
-    /* TODO: Add more rules.
-     * Pay attention to the precedence level of different rules.
+    /* IMPORTANT: rules are tried in order — put longer / more specific
+     * patterns FIRST to avoid premature shorter matches.
      */
 
-    {" +", TK_NOTYPE},  // spaces
-    {"==", TK_EQ},      // equal
-    {"\\+", TK_ADD},    // plus
-    {"[0-9]+", TK_DEC}, // How to express a decimel??
-    {"\\-", TK_SUB},
-    {"\\*", TK_MUL},
-    {"\\/", TK_DIV},
-    {"\\(", TK_LEF},
-    {"\\)", TK_RIG},
-    {"\\==", TK_EQQ},
-    {"\\!=", TK_NEQ},
-    {"\\&&", TK_AND},
+    {" +", TK_NOTYPE},                       // spaces (skip)
+
+    /* multi-char operators before their single-char counterparts */
+    {"==", TK_EQ},                           // equal
+    {"!=", TK_NEQ},                          // not equal
+    {"&&", TK_AND},                          // logical and
+
+    /* hex before decimal (otherwise 0x1 → "0" matches TK_DEC first) */
+    {"0[xX][0-9a-fA-F]+", TK_HEX},           // hex number
+
+    /* decimal */
+    {"[0-9]+", TK_DEC},                      // decimal number
+
+    /* register: $0, ra, sp, gp, tp, t0-t6, s0-s11, a0-a7 */
+    {"\\$0|ra|sp|gp|tp|t[0-6]|s[0-9]+|a[0-9]+", TK_REG},
+
+    /* arithmetic */
+    {"\\+", TK_ADD},                         // plus
+    {"\\-", TK_SUB},                         // minus
+    {"\\*", TK_MUL},                         // multiply/deref
+    {"\\/", TK_DIV},                         // divide
+
+    /* unary */
+    {"!", TK_NOT},                           // logical not
+
+    /* parentheses */
+    {"\\(", TK_LEF},                         // left paren
+    {"\\)", TK_RIG},                         // right paren
 };
 
 #define NR_REGEX ARRLEN(rules)
@@ -96,14 +118,23 @@ typedef struct token
   char str[32];
 } Token;
 
-static Token tokens[32] __attribute__((used)) = {};
+static Token tokens[64] __attribute__((used)) = {};
 static int nr_token __attribute__((used)) = 0;
+
+/* ---- helpers for the secondary pass ---- */
+
+static bool is_operand(int type)
+{
+  return type == TK_DEC || type == TK_HEX || type == TK_REG || type == TK_RIG;
+}
+
+/* ---- tokenizer ---- */
 
 static bool make_token(char *e)
 {
   int position = 0;
   int i;
-  regmatch_t pmatch; //(struct ->int, int)
+  regmatch_t pmatch;
 
   nr_token = 0;
 
@@ -122,56 +153,55 @@ static bool make_token(char *e)
 
         position += substr_len;
 
-        /* TODO: Now a new token is recognized with rules[i]. Add codes
-         * to record the token in the array `tokens'. For certain types
-         * of tokens, some extra actions should be performed.
-         */
+        if (nr_token >= 64)
+        {
+          printf("too many tokens\n");
+          return false;
+        }
 
         switch (rules[i].token_type)
         {
+        case TK_NOTYPE:
+          /* spaces — do not record a token */
+          break;
+
         case TK_ADD:
-          tokens[nr_token].type = TK_ADD;
-          nr_token += 1;
-          break;
         case TK_SUB:
-          tokens[nr_token].type = TK_SUB;
-          nr_token += 1;
-          break;
         case TK_MUL:
-          tokens[nr_token].type = TK_MUL;
-          nr_token += 1;
-          break;
         case TK_DIV:
-          tokens[nr_token].type = TK_DIV;
-          nr_token += 1;
-          break;
         case TK_LEF:
-          tokens[nr_token].type = TK_LEF;
-          nr_token += 1;
-          break;
         case TK_RIG:
-          tokens[nr_token].type = TK_RIG;
-          nr_token += 1;
+        case TK_EQ:
+        case TK_NEQ:
+        case TK_AND:
+        case TK_NOT:
+          /* operators — type is enough, str unused */
+          tokens[nr_token].type = rules[i].token_type;
+          nr_token++;
           break;
+
         case TK_DEC:
-          tokens[nr_token].type = TK_DEC;
+        case TK_HEX:
+        case TK_REG:
+          /* operands — need to save the string */
           assert(substr_len < 32);
+          tokens[nr_token].type = rules[i].token_type;
           strncpy(tokens[nr_token].str, substr_start, substr_len);
           tokens[nr_token].str[substr_len] = '\0';
-          nr_token += 1;
+          nr_token++;
           break;
+
         default:
-          printf("It is space!!");
+          panic("unhandled token type %d", rules[i].token_type);
         }
 
-        break;
+        break; /* out of the for-loop, continue scanning */
       }
     }
 
-    // Match failture !!
     if (i == NR_REGEX)
     {
-      printf("no match at position %d\n%s\n%*.s^\n", position, e, position, "");
+      printf("no match at position %d\n%s\n%*s^\n", position, e, position, "");
       return false;
     }
   }
@@ -179,159 +209,191 @@ static bool make_token(char *e)
   return true;
 }
 
-// Counter: "(" --> +1; ")" --> -1 ; if finally "counter" == 0, return true
-bool check_parentheses(int p, int q)
+/* ---- check for a matched outermost pair of parentheses ---- */
+
+static bool check_parentheses(int p, int q)
 {
-  int counter = 0;
-  for (int i = 0; i < q; i++)
+  if (tokens[p].type != TK_LEF || tokens[q].type != TK_RIG)
+    return false;
+
+  int depth = 0;
+  for (int i = p; i <= q; i++)
   {
-    if (tokens[i].type == TK_LEF)
-    {
-      counter += 1;
-    }
-    if (tokens[i].type == TK_RIG)
-    {
-      counter -= 1;
-    }
-    p++;
-    if (p < q && counter == 0)
-    {
-      return false;
-    }
+    if (tokens[i].type == TK_LEF) depth++;
+    if (tokens[i].type == TK_RIG) depth--;
+    /* depth hits 0 before reaching q → the '(' at p closed too early */
+    if (depth == 0 && i < q) return false;
   }
-  return true;
+  return depth == 0;
 }
 
-// /* GDB 测试辅助: call test_paren("(1+2)", 0, 4) 一步完成 tokenize + 检查 */
-// int test_paren(char *expr_str, int p, int q)
-// {
-//   if (!make_token(expr_str))
-//   {
-//     printf("make_token failed!\n");
-//     return -1;
-//   }
-//   printf("nr_token = %d\n", nr_token);
-//   for (int i = 0; i < nr_token; i++)
-//   {
-//     printf("  tokens[%d]: type=%d, str=\"%s\"\n", i, tokens[i].type, tokens[i].str);
-//   }
-//   bool result = check_parentheses(p, q);
-//   printf("check_parentheses(%d, %d) = %s\n", p, q, result ? "true" : "false");
-//   return result;
-// }
+/* ---- precedence table (binary operators only; higher = tighter) ---- */
 
-uint32_t eval(int p, int q)
+static int precedence(int type)
 {
+  switch (type)
+  {
+  case TK_AND:
+    return 1; // lowest
+  case TK_EQ:
+  case TK_NEQ:
+    return 2;
+  case TK_ADD:
+  case TK_SUB:
+    return 3;
+  case TK_MUL:
+  case TK_DIV:
+    return 4; // highest
+  default:
+    return 0; // not a binary operator
+  }
+}
+
+/* ---- evaluate single token ---- */
+
+static uint32_t eval_single(int p, bool *success)
+{
+  const Token *t = &tokens[p];
+  switch (t->type)
+  {
+  case TK_DEC:
+    return (uint32_t)strtoul(t->str, NULL, 10);
+  case TK_HEX:
+    return (uint32_t)strtoul(t->str, NULL, 16);
+  case TK_REG:
+    return isa_reg_str2val(t->str, success);
+  default:
+    *success = false;
+    return 0;
+  }
+}
+
+/* ---- recursive-descent evaluator ---- */
+
+static uint32_t eval(int p, int q, bool *success)
+{
+  if (!*success) return 0;
+
   if (p > q)
   {
-    /* Bad expression */
-    Log("Bad expression");
-    assert(0);
+    *success = false;
+    return 0;
   }
-  else if (p == q)
-  {
-    /* Single token.
-     * For now this token should be a number.
-     * Return the value of the number.
-     */
-    Log("Single token");
-    uint32_t res = (uint32_t)strtoul(tokens[p].str, NULL, 16);
-    return res;
-  }
-  else if (check_parentheses(p, q) == true)
-  {
-    /* The expression is surrounded by a matched pair of parentheses.
-     * If that is the case, just throw away the parentheses.
-     */
-    return eval(p + 1, q - 1);
-  }
-  else
-  {
-    int op_type = TK_NOTYPE;
-    int op = 0;
-    uint32_t val1 = 0;
-    uint32_t val2 = 0;
 
-    for (int i = q; i > p; i--)
+  /* ---- single token ---- */
+  if (p == q)
+  {
+    return eval_single(p, success);
+  }
+
+  /* ---- strip matched parentheses ---- */
+  if (check_parentheses(p, q))
+  {
+    return eval(p + 1, q - 1, success);
+  }
+
+  /* ---- unary operator at position p ---- */
+  if (tokens[p].type == TK_DEREF)
+  {
+    uint32_t addr = eval(p + 1, q, success);
+    if (!*success) return 0;
+    return paddr_read(addr, 4);
+  }
+  if (tokens[p].type == TK_NEG)
+  {
+    return -(int32_t)eval(p + 1, q, success);
+  }
+  if (tokens[p].type == TK_NOT)
+  {
+    uint32_t v = eval(p + 1, q, success);
+    if (!*success) return 0;
+    return (v == 0) ? 1 : 0;
+  }
+
+  /* ---- find the MAIN binary operator (lowest precedence, rightmost) ---- */
+  int op = -1;
+  int min_prec = 999;
+  int depth = 0;
+
+  for (int i = q; i >= p; i--)
+  {
+    if (tokens[i].type == TK_RIG) { depth++; continue; }
+    if (tokens[i].type == TK_LEF) { depth--; continue; }
+    if (depth > 0) continue;
+
+    int prec = precedence(tokens[i].type);
+    if (prec > 0 && prec < min_prec)
     {
-      if (tokens[i].type == (int)'(')
-      {
-        while (tokens[i].type == (int)')')
-        {
-          i--;
-        }
-      }
-      if (tokens[i].type == (int)'+' || tokens[i].type == (int)'-')
-      {
-        op_type = tokens[i].type;
-        op = i;
-        val1 = eval(p, op - 1);
-        val2 = eval(op + 1, q);
-      }
+      min_prec = prec;
+      op = i;
+      if (prec == 1) break; /* && is the lowest — stop early (leftmost wins for &&) */
     }
-    // op = the position of 主运算符 in the token expression;
-    // val1 = eval(p, op - 1);
-    // val2 = eval(op + 1, q);
+  }
 
-    switch (op_type)
-    {
-    case TK_ADD:
-      return val1 + val2;
-    case TK_SUB: /* ... */
-      return val1 - val2;
-    case TK_MUL: /* ... */
-      return val1 * val2;
-    case TK_DIV: /* ... */
-      assert(val2 == 0);
-      return val1 / val2;
-    case TK_EQQ:
-      return val1 == val2 ? 1 : 0;
-    case TK_NEQ:
-      return val1 != val2 ? 1 : 0;
-    case TK_AND:
-      if (val1 == 0)
-      {
-        return 0;
-      }
-      return val2 != 0 ? 1 : 0;
-    case TK_REF:
+  if (op == -1)
+  {
+    *success = false;
+    return 0;
+  }
 
-    default:
-      assert(0);
-    }
-    assert("No return!!");
+  /* ---- evaluate left and right sub-expressions ---- */
+  uint32_t val1 = eval(p, op - 1, success);
+  uint32_t val2 = eval(op + 1, q, success);
+  if (!*success) return 0;
+
+  /* ---- apply the binary operator ---- */
+  switch (tokens[op].type)
+  {
+  case TK_AND:
+    return (val1 != 0 && val2 != 0) ? 1 : 0;
+  case TK_EQ:
+    return (val1 == val2) ? 1 : 0;
+  case TK_NEQ:
+    return (val1 != val2) ? 1 : 0;
+  case TK_ADD:
+    return val1 + val2;
+  case TK_SUB:
+    return val1 - val2;
+  case TK_MUL:
+    return val1 * val2;
+  case TK_DIV:
+    if (val2 == 0) { *success = false; return 0; }
+    return (int32_t)val1 / (int32_t)val2; // signed division
+  default:
+    *success = false;
+    return 0;
   }
 }
+
+/* ---- public entry point ---- */
 
 word_t expr(char *e, bool *success)
 {
+  *success = true;
+
   if (!make_token(e))
   {
     *success = false;
     return 0;
   }
-  /* TODO: Insert codes to evaluate the expression. */
-  TODO();
 
-  // TK_REF需要额外判断并修改
+  /* ---- secondary pass: disambiguate * and - ---- */
   for (int i = 0; i < nr_token; i++)
   {
-    if (tokens[i].type == '*' && (i == 0 || tokens[i - 1].type == TK_REF))
+    if (tokens[i].type == TK_MUL && (i == 0 || !is_operand(tokens[i - 1].type)))
     {
-      tokens[i].type = TK_REF;
-      isa_reg_str2val(tokens[i].str, success);
+      /* * at start, after an operator, or after '(' → dereference */
+      tokens[i].type = TK_DEREF;
     }
-    // negative
-    if (tokens[i].type == '-' && (i == 0 || tokens[i - 1].type == TK_SUB))
+
+    if (tokens[i].type == TK_SUB && (i == 0 || !is_operand(tokens[i - 1].type)))
     {
+      /* - at start, after an operator, or after '(' → negation */
       tokens[i].type = TK_NEG;
-      int temp = (int)strtoul(tokens[i].str, NULL, 16); // Translate from "char[]" to "int"
-      temp |= 0x80000000;                               // Get Negative
-      char buf[32];
-      snprintf(tokens[i].str, sizeof(buf), "%d", temp); // Translate from "int" to "char[]"
     }
   }
 
-  int p = 0, q = nr_token;
-  return eval(p, q);
+  if (nr_token == 0) { *success = false; return 0; }
+
+  return eval(0, nr_token - 1, success);
 }
