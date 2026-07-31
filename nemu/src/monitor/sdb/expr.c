@@ -167,21 +167,22 @@ static bool make_token(char *e)
   return true;
 }
 
+// Counter: "(" --> +1; ")" --> -1 ; if finally "counter" == 0, return true
 bool check_parentheses(int p, int q)
 {
-  int stack = 0;
+  int counter = 0;
   for (int i = 0; i < q; i++)
   {
     if (tokens[i].type == TK_LEF)
     {
-      stack += 1;
+      counter += 1;
     }
     if (tokens[i].type == TK_RIG)
     {
-      stack -= 1;
+      counter -= 1;
     }
     p++;
-    if (p < q && stack == 0)
+    if (p < q && counter == 0)
     {
       return false;
     }
@@ -190,13 +191,16 @@ bool check_parentheses(int p, int q)
 }
 
 /* GDB 测试辅助: call test_paren("(1+2)", 0, 4) 一步完成 tokenize + 检查 */
-int test_paren(char *expr_str, int p, int q) {
-  if (!make_token(expr_str)) {
+int test_paren(char *expr_str, int p, int q)
+{
+  if (!make_token(expr_str))
+  {
     printf("make_token failed!\n");
     return -1;
   }
   printf("nr_token = %d\n", nr_token);
-  for (int i = 0; i < nr_token; i++) {
+  for (int i = 0; i < nr_token; i++)
+  {
     printf("  tokens[%d]: type=%d, str=\"%s\"\n", i, tokens[i].type, tokens[i].str);
   }
   bool result = check_parentheses(p, q);
@@ -204,11 +208,13 @@ int test_paren(char *expr_str, int p, int q) {
   return result;
 }
 
-// int eval()
+// int eval(int p, int q)
 // {
 //   if (p > q)
 //   {
 //     /* Bad expression */
+//     Log("Bad expression");
+//     return 1;
 //   }
 //   else if (p == q)
 //   {
@@ -216,17 +222,33 @@ int test_paren(char *expr_str, int p, int q) {
 //      * For now this token should be a number.
 //      * Return the value of the number.
 //      */
+//     Log("Single token");
+//     return 1;
 //   }
 //   else if (check_parentheses(p, q) == true)
 //   {
 //     /* The expression is surrounded by a matched pair of parentheses.
 //      * If that is the case, just throw away the parentheses.
 //      */
+
 //     return eval(p + 1, q - 1);
 //   }
 //   else
 //   {
-//     /* We should do more things here. */
+//     op = the position of 主运算符 in the token expression;
+//     val1 = eval(p, op - 1);
+//     val2 = eval(op + 1, q);
+
+//     switch (op_type)
+//     {
+//     case '+':
+//       return val1 + val2;
+//     case '-': /* ... */
+//     case '*': /* ... */
+//     case '/': /* ... */
+//     default:
+//       assert(0);
+//     }
 //   }
 // }
 
