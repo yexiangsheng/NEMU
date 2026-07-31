@@ -66,6 +66,7 @@ WP *new_wp()
     head = temp;
   }
   head_num++;
+  head->NO = head_num;
   free_num--;
 
   return head;
@@ -87,7 +88,7 @@ void free_wp(WP *wp)
   {
     free_ = temp;
   }
-
+  free_->NO = 0;
   free_->watch_num = NULL;
   head_num--;
   free_num++;
@@ -120,4 +121,29 @@ void watchpoint_check()
     ite = ite->next;
   }
   return;
+}
+
+void delete_wp(int n)
+{
+  WP *ite = head;
+  for (int i = 0; i < head_num; i++)
+  {
+    if (head->NO == n)
+    {
+      head = head->next;
+      ite->next = free_;
+      free_ = ite;
+    }
+    else if (ite->next->NO == n)
+    {
+      WP *temp = ite->next;
+      ite->next->next = temp->next;
+      temp->next = free_;
+      free_ = temp;
+    }
+    else
+    {
+      ite = ite->next;
+    }
+  }
 }

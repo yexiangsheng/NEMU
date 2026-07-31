@@ -72,7 +72,7 @@ static int cmd_p_expr(char *args);
 
 static int cmd_w_expr(char *args);
 
-// static int cmd_delete(char *args);
+static int cmd_delete(char *args);
 
 static struct
 {
@@ -87,8 +87,8 @@ static struct
     {"info", "'info r', Display register status; 'info w', Display monitor information", cmd_info},
     {"x", "'x N EXPR',Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format.", cmd_scanf_mem},
     {"p", "'p EXPR',Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr},
-    {"w", "'w EXPR',Pause program execution when the value of expression EXPR changes.", cmd_w_expr}
-    //{ "d", "Delete the watchpoint with sequence number N.", cmd_delete }
+    {"w", "'w EXPR',Pause program execution when the value of expression EXPR changes.", cmd_w_expr},
+    {"d", "Delete the watchpoint with sequence number N.", cmd_delete}
     /* TODO: Add more commands */
 
 };
@@ -238,6 +238,21 @@ static int cmd_w_expr(char *args)
   {
     get_new_wp(arg);
     // Log("Already set watchpoint in %");
+  }
+  else
+  {
+    Log("The EXPR is NULL!!\n");
+  }
+  return 1;
+}
+
+static int cmd_delete(char *args)
+{
+  char *arg = strtok(NULL, " ");
+  int res = atoi(arg);
+  if (arg != NULL)
+  {
+    delete_wp(res);
   }
   else
   {
