@@ -226,21 +226,23 @@ static int cmd_p_expr(char *args)
 {
   char *arg = strtok(NULL, " ");
   bool success = false;
-
   uint32_t res = expr(arg, &success);
-  snprintf(arg, 32, "The finally result is %u", res);
+  snprintf(arg, 32, "%u", res);
   return success;
 }
 
 static int cmd_w_expr(char *args)
 {
   char *arg = strtok(NULL, " ");
-  bool success = false;
-  uint32_t res = expr(arg, &success);
-
-  snprintf(arg, 32, "%u", res);
-
-  return success;
+  if (arg != NULL)
+  {
+    get_new_wp(arg);
+  }
+  else
+  {
+    Log("The EXPR is NULL!!\n");
+  }
+  return 1;
 }
 
 void sdb_set_batch_mode()

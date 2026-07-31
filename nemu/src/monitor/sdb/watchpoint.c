@@ -112,6 +112,6 @@ void watchpoint_check()
     }
     ite = ite->next;
   }
-  Log("Interpret by watchpoint changed!");
+  Log("Interpret by watchpoint changed!\n");
   return;
 }

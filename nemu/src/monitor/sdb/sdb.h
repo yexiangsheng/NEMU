@@ -22,6 +22,7 @@ word_t expr(char *e, bool *success);
 
 #ifdef CONFIG_WATCHPOINT
 void watchpoint_check();
+void get_new_wp(char *expr);
 #endif
 
 #endif
