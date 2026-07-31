@@ -230,6 +230,21 @@ int test_paren(char *expr_str, int p, int q)
 //     /* The expression is surrounded by a matched pair of parentheses.
 //      * If that is the case, just throw away the parentheses.
 //      */
+//     for (int i = p - 1; i < q; i++)
+//     {
+//       uint32_t res = 0;
+//       if (tokens[i].type == TK_MUL)
+//       {
+//         res += (uint32_t)strtoul(tokens[i].str, NULL, 16);
+//         res *= (uint32_t)strtoul(tokens[i].str, NULL, 16);
+//       }
+//       else if (tokens[i].type == TK_DIV)
+//       {
+//       }
+//       else if ()
+//       {
+//       }
+//     }
 
 //     return eval(p + 1, q - 1);
 //   }
