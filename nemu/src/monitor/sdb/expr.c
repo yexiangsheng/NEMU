@@ -270,6 +270,7 @@ uint32_t eval(int p, int q)
     case (int)'*': /* ... */
       return val1 * val2;
     case (int)'/': /* ... */
+      assert(val2 == 0);
       return val1 / val2;
     default:
       assert(0);

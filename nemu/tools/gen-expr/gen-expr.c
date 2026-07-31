@@ -39,8 +39,15 @@ static uint32_t choose(uint32_t n)
 }
 static void gen_num()
 {
+  // Gennerate a new number
   char tmp[16];
-  sprintf(tmp, "%u", (uint32_t)rand() % 100);
+  uint32_t res = (uint32_t)rand() % 99 + 1;
+  // Check the generated number, if zero --> regenerate.
+  while (res == 0)
+  {
+    res = (uint32_t)rand() % 99 + 1;
+  }
+  sprintf(tmp, "%u", res);
   strcat(buf, tmp);
 }
 static void gen(const char expr)
@@ -93,7 +100,7 @@ int main(int argc, char *argv[])
 {
   int seed = time(0);
   srand(seed);
-  int loop = 1;
+  int loop = 10;
   if (argc > 1)
   {
     sscanf(argv[1], "%d", &loop);
