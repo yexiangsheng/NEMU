@@ -326,6 +326,7 @@ word_t expr(char *e, bool *success)
     if (tokens[i].type == TK_MUL && (at_start || prev_is_non_operand))
     {
       tokens[i].type = TK_REF;
+      *success = isa_reg_str2val(tokens[i].str, success);
     }
 
     if (tokens[i].type == TK_SUB && (at_start || prev_is_non_operand))
