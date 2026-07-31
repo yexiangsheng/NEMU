@@ -32,7 +32,14 @@ enum
   TK_MUL = 42,
   TK_DIV = 47,
   TK_LEF = 40,
-  TK_RIG = 41
+  TK_RIG = 41,
+
+  TK_EQQ = 254,
+  TK_NEQ = 253,
+  TK_AND = 252,
+  TK_REF = 251,
+
+  TK_NEG = 200
 };
 
 static struct rule
@@ -53,7 +60,11 @@ static struct rule
     {"\\*", TK_MUL},
     {"\\/", TK_DIV},
     {"\\(", TK_LEF},
-    {"\\)", TK_RIG}};
+    {"\\)", TK_RIG},
+    {"\\==", TK_EQQ},
+    {"\\!=", TK_NEQ},
+    {"\\&&", TK_AND},
+};
 
 #define NR_REGEX ARRLEN(rules)
 
@@ -152,6 +163,7 @@ static bool make_token(char *e)
         default:
           printf("It is space!!");
         }
+
         break;
       }
     }
@@ -263,15 +275,27 @@ uint32_t eval(int p, int q)
 
     switch (op_type)
     {
-    case (int)'+':
+    case TK_ADD:
       return val1 + val2;
-    case (int)'-': /* ... */
+    case TK_SUB: /* ... */
       return val1 - val2;
-    case (int)'*': /* ... */
+    case TK_MUL: /* ... */
       return val1 * val2;
-    case (int)'/': /* ... */
+    case TK_DIV: /* ... */
       assert(val2 == 0);
       return val1 / val2;
+    case TK_EQQ:
+      return val1 == val2 ? 1 : 0;
+    case TK_NEQ:
+      return val1 != val2 ? 1 : 0;
+    case TK_AND:
+      if (val1 == 0)
+      {
+        return 0;
+      }
+      return val2 != 0 ? 1 : 0;
+    case TK_REF:
+
     default:
       assert(0);
     }
@@ -289,14 +313,24 @@ word_t expr(char *e, bool *success)
   /* TODO: Insert codes to evaluate the expression. */
   TODO();
 
-  // for (i = 0; i < nr_token; i++)
-  // {
-  //   if (tokens[i].type == '*' && (i == 0 || tokens[i - 1].type == certain type))
-  //   {
-  //     tokens[i].type = DEREF;
-  //   }
-  // }
+  // TK_REF需要额外判断并修改
+  for (int i = 0; i < nr_token; i++)
+  {
+    if (tokens[i].type == '*' && (i == 0 || tokens[i - 1].type == TK_REF))
+    {
+      tokens[i].type = TK_REF;
+    }
+    // negative
+    if (tokens[i].type == '-' && (i == 0 || tokens[i - 1].type == TK_SUB))
+    {
+      tokens[i].type = TK_NEG;
+      int temp = (int)strtoul(tokens[i].str, NULL, 16); // Translate from "char[]" to "int"
+      temp |= 0x80000000;                               // Get Negative
+      char buf[32];
+      snprintf(tokens[i].str, sizeof(buf), "%d", temp); // Translate from "int" to "char[]"
+    }
+  }
 
-  // return eval(?, ?);
-  return 0;
+  int p = 0, q = nr_token;
+  return eval(p, q);
 }
