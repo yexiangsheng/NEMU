@@ -26,13 +26,13 @@ enum
   TK_EQ = 255,
 
   /* TODO: Add more token types */
-  TK_DEC = 1,
-  TK_ADD = 2,
-  TK_SUB = 3,
-  TK_MUL = 4,
-  TK_DIV = 5,
-  TK_LEF = 6,
-  TK_RIG = 7
+  TK_DEC = 10,
+  TK_ADD = 43,
+  TK_SUB = 45,
+  TK_MUL = 42,
+  TK_DIV = 47,
+  TK_LEF = 40,
+  TK_RIG = 41
 };
 
 static struct rule
@@ -190,82 +190,93 @@ bool check_parentheses(int p, int q)
   return true;
 }
 
-/* GDB 测试辅助: call test_paren("(1+2)", 0, 4) 一步完成 tokenize + 检查 */
-int test_paren(char *expr_str, int p, int q)
-{
-  if (!make_token(expr_str))
-  {
-    printf("make_token failed!\n");
-    return -1;
-  }
-  printf("nr_token = %d\n", nr_token);
-  for (int i = 0; i < nr_token; i++)
-  {
-    printf("  tokens[%d]: type=%d, str=\"%s\"\n", i, tokens[i].type, tokens[i].str);
-  }
-  bool result = check_parentheses(p, q);
-  printf("check_parentheses(%d, %d) = %s\n", p, q, result ? "true" : "false");
-  return result;
-}
-
-// int eval(int p, int q)
+// /* GDB 测试辅助: call test_paren("(1+2)", 0, 4) 一步完成 tokenize + 检查 */
+// int test_paren(char *expr_str, int p, int q)
 // {
-//   if (p > q)
+//   if (!make_token(expr_str))
 //   {
-//     /* Bad expression */
-//     Log("Bad expression");
-//     return 1;
+//     printf("make_token failed!\n");
+//     return -1;
 //   }
-//   else if (p == q)
+//   printf("nr_token = %d\n", nr_token);
+//   for (int i = 0; i < nr_token; i++)
 //   {
-//     /* Single token.
-//      * For now this token should be a number.
-//      * Return the value of the number.
-//      */
-//     Log("Single token");
-//     return 1;
+//     printf("  tokens[%d]: type=%d, str=\"%s\"\n", i, tokens[i].type, tokens[i].str);
 //   }
-//   else if (check_parentheses(p, q) == true)
-//   {
-//     /* The expression is surrounded by a matched pair of parentheses.
-//      * If that is the case, just throw away the parentheses.
-//      */
-//     for (int i = p - 1; i < q; i++)
-//     {
-//       uint32_t res = 0;
-//       if (tokens[i].type == TK_MUL)
-//       {
-//         res += (uint32_t)strtoul(tokens[i].str, NULL, 16);
-//         res *= (uint32_t)strtoul(tokens[i].str, NULL, 16);
-//       }
-//       else if (tokens[i].type == TK_DIV)
-//       {
-//       }
-//       else if ()
-//       {
-//       }
-//     }
-
-//     return eval(p + 1, q - 1);
-//   }
-//   else
-//   {
-//     op = the position of 主运算符 in the token expression;
-//     val1 = eval(p, op - 1);
-//     val2 = eval(op + 1, q);
-
-//     switch (op_type)
-//     {
-//     case '+':
-//       return val1 + val2;
-//     case '-': /* ... */
-//     case '*': /* ... */
-//     case '/': /* ... */
-//     default:
-//       assert(0);
-//     }
-//   }
+//   bool result = check_parentheses(p, q);
+//   printf("check_parentheses(%d, %d) = %s\n", p, q, result ? "true" : "false");
+//   return result;
 // }
+
+uint32_t eval(int p, int q)
+{
+  if (p > q)
+  {
+    /* Bad expression */
+    Log("Bad expression");
+    assert(0);
+  }
+  else if (p == q)
+  {
+    /* Single token.
+     * For now this token should be a number.
+     * Return the value of the number.
+     */
+    Log("Single token");
+    uint32_t res = (uint32_t)strtoul(tokens[p].str, NULL, 16);
+    return res;
+  }
+  else if (check_parentheses(p, q) == true)
+  {
+    /* The expression is surrounded by a matched pair of parentheses.
+     * If that is the case, just throw away the parentheses.
+     */
+    return eval(p + 1, q - 1);
+  }
+  else
+  {
+    int op_type = TK_NOTYPE;
+    int op = 0;
+    uint32_t val1 = 0;
+    uint32_t val2 = 0;
+
+    for (int i = q; i > p; i--)
+    {
+      if (tokens[i].type == (int)'(')
+      {
+        while (tokens[i].type == (int)')')
+        {
+          i--;
+        }
+      }
+      if (tokens[i].type == (int)'+' || tokens[i].type == (int)'-')
+      {
+        op_type = tokens[i].type;
+        op = i;
+        val1 = eval(p, op - 1);
+        val2 = eval(op + 1, q);
+      }
+    }
+    // op = the position of 主运算符 in the token expression;
+    // val1 = eval(p, op - 1);
+    // val2 = eval(op + 1, q);
+
+    switch (op_type)
+    {
+    case (int)'+':
+      return val1 + val2;
+    case (int)'-': /* ... */
+      return val1 - val2;
+    case (int)'*': /* ... */
+      return val1 * val2;
+    case (int)'/': /* ... */
+      return val1 / val2;
+    default:
+      assert(0);
+    }
+    assert("No return!!");
+  }
+}
 
 word_t expr(char *e, bool *success)
 {
