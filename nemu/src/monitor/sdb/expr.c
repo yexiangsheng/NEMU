@@ -401,55 +401,58 @@ int test_expr_all(void)
    */
 
   /* ---- 单数字 ---- */
-  fail += test_one("0",   0x0);
-  fail += test_one("1",   0x1);
-  fail += test_one("10",  0x10);    // 十六进制：10 = 16
+  fail += test_one("0", 0x0);
+  fail += test_one("1", 0x1);
+  fail += test_one("10", 0x10); // 十六进制：10 = 16
 
   /* ---- 加减乘除 ---- */
-  fail += test_one("1+2",     0x3);
-  fail += test_one("5-3",     0x2);
-  fail += test_one("2*3",     0x6);
-  fail += test_one("8/2",     0x4);
+  fail += test_one("1+2", 0x3);
+  printf("11111!!!!!!!!");
+  fail += test_one("5-3", 0x2);
+  printf("22222!!!!!!!!");
+  fail += test_one("2*3", 0x6);
+  printf("33333!!!!!!!!");
+  fail += test_one("8/2", 0x4);
 
   /* ---- 括号 ---- */
-  fail += test_one("(1+2)",       0x3);
-  fail += test_one("(1+2)*3",     0x9);  // 3*3=9
-  fail += test_one("2*(3+4)",     0xe);  // 2*7=14=0xe
-  fail += test_one("((1+2))",     0x3);
+  fail += test_one("(1+2)", 0x3);
+  fail += test_one("(1+2)*3", 0x9); // 3*3=9
+  fail += test_one("2*(3+4)", 0xe); // 2*7=14=0xe
+  fail += test_one("((1+2))", 0x3);
 
   /* ---- 运算符优先级 ---- */
-  fail += test_one("1+2*3",     0x7);   // 1+6=7
-  fail += test_one("2*3+4",     0xa);   // 6+4=10=0xa
-  fail += test_one("2+3*4",     0xe);   // 2+12=14=0xe
-  fail += test_one("1-2+3",     0x2);   // left assoc: (1-2)+3=2
+  fail += test_one("1+2*3", 0x7); // 1+6=7
+  fail += test_one("2*3+4", 0xa); // 6+4=10=0xa
+  fail += test_one("2+3*4", 0xe); // 2+12=14=0xe
+  fail += test_one("1-2+3", 0x2); // left assoc: (1-2)+3=2
 
   /* ---- 空格 ---- */
   fail += test_one(" 1 + 2 ", 0x3);
   fail += test_one("( 1 + 2 ) * 3", 0x9);
 
   /* ---- 比较运算 ---- */
-  fail += test_one("1==1",       0x1);  // true
-  fail += test_one("1==2",       0x0);  // false
-  fail += test_one("1!=2",       0x1);  // true
-  fail += test_one("2!=2",       0x0);  // false
+  fail += test_one("1==1", 0x1); // true
+  fail += test_one("1==2", 0x0); // false
+  fail += test_one("1!=2", 0x1); // true
+  fail += test_one("2!=2", 0x0); // false
 
   /* ---- 逻辑与 ---- */
-  fail += test_one("1&&1",       0x1);
-  fail += test_one("1&&0",       0x0);
-  fail += test_one("0&&1",       0x0);
-  fail += test_one("0&&0",       0x0);
-  fail += test_one("2&&3",       0x1);  // both non-zero
+  fail += test_one("1&&1", 0x1);
+  fail += test_one("1&&0", 0x0);
+  fail += test_one("0&&1", 0x0);
+  fail += test_one("0&&0", 0x0);
+  fail += test_one("2&&3", 0x1); // both non-zero
 
   /* ---- 一元取反 ---- */
-  fail += test_one("-1",         0xffffffff);  // -(1)
-  fail += test_one("-0",         0x0);
-  fail += test_one("1+-2",       0xffffffff);  // 1+(-2)
-  fail += test_one("-(1+2)",     0xfffffffd);  // -(3)
+  fail += test_one("-1", 0xffffffff); // -(1)
+  fail += test_one("-0", 0x0);
+  fail += test_one("1+-2", 0xffffffff);   // 1+(-2)
+  fail += test_one("-(1+2)", 0xfffffffd); // -(3)
 
   /* ---- 组合 ---- */
-  fail += test_one("1+2==3",     0x1);  // (1+2)==3
-  fail += test_one("(1+2)*3!=9", 0x0);  // 9!=9 is false
-  fail += test_one("1+2*3==7",   0x1);  // 1+6==7
+  fail += test_one("1+2==3", 0x1);     // (1+2)==3
+  fail += test_one("(1+2)*3!=9", 0x0); // 9!=9 is false
+  fail += test_one("1+2*3==7", 0x1);   // 1+6==7
 
   printf("=== test_expr_all: %d/%d failed ===\n", fail, fail ? 1 : 0 /* just count */);
   printf("=== total failures: %d ===\n", fail);
