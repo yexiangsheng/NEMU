@@ -14,6 +14,7 @@
  ***************************************************************************************/
 
 #include <isa.h>
+#include <memory/paddr.h>
 
 /* We use the POSIX regex functions to process regular expressions.
  * Type 'man regex' for more information about POSIX regex functions.
@@ -23,23 +24,28 @@
 enum
 {
   TK_NOTYPE = 256,
-  TK_EQ = 255,
 
-  /* TODO: Add more token types */
-  TK_DEC = 10,
-  TK_ADD = 43,
-  TK_SUB = 45,
-  TK_MUL = 42,
-  TK_DIV = 47,
-  TK_LEF = 40,
-  TK_RIG = 41,
+  /* 操作数 */
+  TK_DEC = 257,   // 十进制数字
+  TK_HEX = 258,   // 十六进制数字 (0x...)
+  TK_REG = 259,   // 寄存器 ($0, ra, sp, ...)
 
-  TK_EQQ = 254,
-  TK_NEQ = 253,
-  TK_AND = 252,
-  TK_REF = 251,
+  /* 二元运算符（优先级从低到高） */
+  TK_AND = 260,   // &&
+  TK_EQ  = 261,   // ==
+  TK_NEQ = 262,   // !=
+  TK_ADD = 263,   // +
+  TK_SUB = 264,   // -
+  TK_MUL = 265,   // *
+  TK_DIV = 266,   // /
 
-  TK_NEG = 200
+  /* 一元运算符 */
+  TK_DEREF = 267, // * 解引用
+  TK_NEG   = 268, // - 取反
+
+  /* 括号 */
+  TK_LEF = 269,   // (
+  TK_RIG = 270,   // )
 };
 
 static struct rule
@@ -47,23 +53,36 @@ static struct rule
   const char *regex;
   int token_type;
 } rules[] = {
+    /* 规则按顺序尝试——长匹配/特化模式放前面 */
 
-    /* TODO: Add more rules.
-     * Pay attention to the precedence level of different rules.
-     */
+    {" +", TK_NOTYPE},                       // 空格（跳过）
 
-    {" +", TK_NOTYPE},  // spaces
-    {"==", TK_EQ},      // equal
-    {"\\+", TK_ADD},    // plus
-    {"[0-9]+", TK_DEC}, // How to express a decimel??
+    /* 多字符运算符优先 */
+    {"==", TK_EQ},                           // 相等
+    {"!=", TK_NEQ},                          // 不等
+    {"&&", TK_AND},                          // 逻辑与
+
+    /* 十六进制优先于十进制（否则 0x1 的 "0" 先被 TK_DEC 匹配） */
+    {"0[xX][0-9a-fA-F]+", TK_HEX},           // 十六进制
+
+    /* 十进制 */
+    {"[0-9]+", TK_DEC},                      // 十进制
+
+    /* 寄存器：必须放在 [0-9]+ 等可能部分匹配的规则之后，但实际上
+     * 寄存器名以 $ 或字母开头，不会与数字规则冲突。放在数字之后
+     * 可以避免类似 "s0" 在 [a-z]+ 中意外匹配（现在没有这条规则）。 */
+    {"\\$0|ra|sp|gp|tp|t[0-6]|s[0-9]+|a[0-9]+", TK_REG},
+
+    /* 算术 */
+    {"\\+", TK_ADD},
     {"\\-", TK_SUB},
     {"\\*", TK_MUL},
     {"\\/", TK_DIV},
+
+    /* 括号 */
     {"\\(", TK_LEF},
     {"\\)", TK_RIG},
-    {"\\==", TK_EQQ},
-    {"\\!=", TK_NEQ},
-    {"\\&&", TK_AND}};
+};
 
 #define NR_REGEX ARRLEN(rules)
 
@@ -95,14 +114,16 @@ typedef struct token
   char str[32];
 } Token;
 
-static Token tokens[32] __attribute__((used)) = {};
+static Token tokens[64] __attribute__((used)) = {};
 static int nr_token __attribute__((used)) = 0;
+
+/* ---- 词法分析 ---- */
 
 static bool make_token(char *e)
 {
   int position = 0;
   int i;
-  regmatch_t pmatch; //(struct ->int, int)
+  regmatch_t pmatch;
 
   nr_token = 0;
 
@@ -121,56 +142,54 @@ static bool make_token(char *e)
 
         position += substr_len;
 
-        /* TODO: Now a new token is recognized with rules[i]. Add codes
-         * to record the token in the array `tokens'. For certain types
-         * of tokens, some extra actions should be performed.
-         */
+        if (nr_token >= 64)
+        {
+          printf("too many tokens\n");
+          return false;
+        }
 
         switch (rules[i].token_type)
         {
+        /* ---- 跳过的类型 ---- */
+        case TK_NOTYPE:
+          break; /* 空格不产生 token */
+
+        /* ---- 运算符（只需记录 type） ---- */
+        case TK_EQ:
+        case TK_NEQ:
+        case TK_AND:
         case TK_ADD:
-          tokens[nr_token].type = TK_ADD;
-          nr_token += 1;
-          break;
         case TK_SUB:
-          tokens[nr_token].type = TK_SUB;
-          nr_token += 1;
-          break;
         case TK_MUL:
-          tokens[nr_token].type = TK_MUL;
-          nr_token += 1;
-          break;
         case TK_DIV:
-          tokens[nr_token].type = TK_DIV;
-          nr_token += 1;
-          break;
         case TK_LEF:
-          tokens[nr_token].type = TK_LEF;
-          nr_token += 1;
-          break;
         case TK_RIG:
-          tokens[nr_token].type = TK_RIG;
-          nr_token += 1;
+          tokens[nr_token].type = rules[i].token_type;
+          nr_token++;
           break;
+
+        /* ---- 操作数（需要保存字符串以便求值） ---- */
         case TK_DEC:
-          tokens[nr_token].type = TK_DEC;
+        case TK_HEX:
+        case TK_REG:
           assert(substr_len < 32);
+          tokens[nr_token].type = rules[i].token_type;
           strncpy(tokens[nr_token].str, substr_start, substr_len);
           tokens[nr_token].str[substr_len] = '\0';
-          nr_token += 1;
+          nr_token++;
           break;
+
         default:
-          printf("It is space!!");
+          panic("unhandled token type %d", rules[i].token_type);
         }
 
-        break;
+        break; /* 跳出规则循环，继续扫描下一个位置 */
       }
     }
 
-    // Match failture !!
     if (i == NR_REGEX)
     {
-      printf("no match at position %d\n%s\n%*.s^\n", position, e, position, "");
+      printf("no match at position %d\n%s\n%*s^\n", position, e, position, "");
       return false;
     }
   }
@@ -178,137 +197,158 @@ static bool make_token(char *e)
   return true;
 }
 
-// Counter: "(" --> +1; ")" --> -1 ; if finally "counter" == 0, return true
-bool check_parentheses(int p, int q)
-{
-  int counter = 0;
-  for (int i = 0; i < q; i++)
-  {
-    if (tokens[i].type == TK_LEF)
-    {
-      counter += 1;
-    }
-    if (tokens[i].type == TK_RIG)
-    {
-      counter -= 1;
-    }
-    p++;
-    if (p < q && counter == 0)
-    {
-      return false;
-    }
-  }
-  return true;
-}
+/* ---- 辅助判断 ---- */
 
-// /* GDB 测试辅助: call test_paren("(1+2)", 0, 4) 一步完成 tokenize + 检查 */
-// int test_paren(char *expr_str, int p, int q)
-// {
-//   if (!make_token(expr_str))
-//   {
-//     printf("make_token failed!\n");
-//     return -1;
-//   }
-//   printf("nr_token = %d\n", nr_token);
-//   for (int i = 0; i < nr_token; i++)
-//   {
-//     printf("  tokens[%d]: type=%d, str=\"%s\"\n", i, tokens[i].type, tokens[i].str);
-//   }
-//   bool result = check_parentheses(p, q);
-//   printf("check_parentheses(%d, %d) = %s\n", p, q, result ? "true" : "false");
-//   return result;
-// }
-
-uint32_t eval(int p, int q)
-{
-  if (p > q)
-  {
-    /* Bad expression */
-    Log("Bad expression");
-    assert(0);
-  }
-  else if (p == q)
-  {
-    /* Single token.
-     * For now this token should be a number.
-     * Return the value of the number.
-     */
-    Log("Single token");
-    uint32_t res = (uint32_t)strtoul(tokens[p].str, NULL, 16);
-    return res;
-  }
-  else if (check_parentheses(p, q) == true)
-  {
-    /* The expression is surrounded by a matched pair of parentheses.
-     * If that is the case, just throw away the parentheses.
-     */
-    return eval(p + 1, q - 1);
-  }
-  else
-  {
-    int op_type = TK_NOTYPE;
-    int op = 0;
-    uint32_t val1 = 0;
-    uint32_t val2 = 0;
-
-    for (int i = q; i > p; i--)
-    {
-      if (tokens[i].type == (int)'(')
-      {
-        while (tokens[i].type == (int)')')
-        {
-          i--;
-        }
-      }
-      if (tokens[i].type == (int)'+' || tokens[i].type == (int)'-')
-      {
-        op_type = tokens[i].type;
-        op = i;
-        val1 = eval(p, op - 1);
-        val2 = eval(op + 1, q);
-      }
-    }
-    // op = the position of 主运算符 in the token expression;
-    // val1 = eval(p, op - 1);
-    // val2 = eval(op + 1, q);
-
-    switch (op_type)
-    {
-    case TK_ADD:
-      return val1 + val2;
-    case TK_SUB: /* ... */
-      return val1 - val2;
-    case TK_MUL: /* ... */
-      return val1 * val2;
-    case TK_DIV: /* ... */
-      assert(val2 == 0);
-      return val1 / val2;
-    case TK_EQQ:
-      return val1 == val2 ? 1 : 0;
-    case TK_NEQ:
-      return val1 != val2 ? 1 : 0;
-    case TK_AND:
-      if (val1 == 0)
-      {
-        return 0;
-      }
-      return val2 != 0 ? 1 : 0;
-    default:
-      assert(0);
-    }
-    assert("No return!!");
-  }
-}
-
-/* 判断一个 token 类型是否属于"操作数"（或右括号）。
- * * 和 - 只有当前面不是操作数/右括号时，才被视为一元运算符。 */
+/* 操作数类型：* 和 - 前面是这些类型时，应视为二元运算符 */
 static bool is_operand(int type)
 {
-  return type == TK_DEC || type == TK_RIG;
+  return type == TK_DEC || type == TK_HEX || type == TK_REG || type == TK_RIG;
 }
+
+/* 二元运算符优先级：数字越大优先级越高。返回 0 表示不是二元运算符。 */
+static int precedence(int type)
+{
+  switch (type)
+  {
+  case TK_AND:
+    return 1; // 最低
+  case TK_EQ:
+  case TK_NEQ:
+    return 2;
+  case TK_ADD:
+  case TK_SUB:
+    return 3;
+  case TK_MUL:
+  case TK_DIV:
+    return 4; // 最高
+  default:
+    return 0; // 非二元运算符
+  }
+}
+
+/* ---- 括号匹配检查 ---- */
+
+static bool check_parentheses(int p, int q)
+{
+  if (tokens[p].type != TK_LEF || tokens[q].type != TK_RIG)
+    return false;
+
+  int depth = 0;
+  for (int i = p; i <= q; i++)
+  {
+    if (tokens[i].type == TK_LEF) depth++;
+    if (tokens[i].type == TK_RIG) depth--;
+    if (depth == 0 && i < q) return false; /* 过早闭合 */
+  }
+  return depth == 0;
+}
+
+/* ---- 递归求值 ---- */
+
+static uint32_t eval(int p, int q, bool *success)
+{
+  if (!*success) return 0;
+
+  /* 非法区间 */
+  if (p > q)
+  {
+    *success = false;
+    return 0;
+  }
+
+  /* ---- 单 token ---- */
+  if (p == q)
+  {
+    switch (tokens[p].type)
+    {
+    case TK_DEC:
+      return (uint32_t)strtoul(tokens[p].str, NULL, 10);
+    case TK_HEX:
+      return (uint32_t)strtoul(tokens[p].str, NULL, 16);
+    case TK_REG:
+      return isa_reg_str2val(tokens[p].str, success);
+    default:
+      *success = false;
+      return 0;
+    }
+  }
+
+  /* ---- 剥离匹配的外层括号 ---- */
+  if (check_parentheses(p, q))
+  {
+    return eval(p + 1, q - 1, success);
+  }
+
+  /* ---- 一元运算符（出现在表达式最左端） ---- */
+  if (tokens[p].type == TK_DEREF)
+  {
+    uint32_t addr = eval(p + 1, q, success);
+    if (!*success) return 0;
+    return paddr_read(addr, 4);
+  }
+  if (tokens[p].type == TK_NEG)
+  {
+    return -(int32_t)eval(p + 1, q, success);
+  }
+
+  /* ---- 寻找主二元运算符（最低优先级、最右） ---- */
+  int op = -1;
+  int min_prec = 999;
+  int depth = 0;
+
+  for (int i = q; i >= p; i--)
+  {
+    if (tokens[i].type == TK_RIG) { depth++; continue; }
+    if (tokens[i].type == TK_LEF) { depth--; continue; }
+    if (depth > 0) continue; /* 跳过括号内部 */
+
+    int prec = precedence(tokens[i].type);
+    if (prec > 0 && prec <= min_prec)
+    {
+      min_prec = prec;
+      op = i;
+    }
+  }
+
+  if (op == -1)
+  {
+    *success = false;
+    return 0;
+  }
+
+  uint32_t val1 = eval(p, op - 1, success);
+  uint32_t val2 = eval(op + 1, q, success);
+  if (!*success) return 0;
+
+  switch (tokens[op].type)
+  {
+  case TK_AND:
+    return (val1 != 0 && val2 != 0) ? 1 : 0;
+  case TK_EQ:
+    return (val1 == val2) ? 1 : 0;
+  case TK_NEQ:
+    return (val1 != val2) ? 1 : 0;
+  case TK_ADD:
+    return val1 + val2;
+  case TK_SUB:
+    return val1 - val2;
+  case TK_MUL:
+    return val1 * val2;
+  case TK_DIV:
+    if (val2 == 0) { *success = false; return 0; }
+    return (int32_t)val1 / (int32_t)val2; /* 有符号除法 */
+  default:
+    *success = false;
+    return 0;
+  }
+}
+
+/* ---- 对外入口 ---- */
 
 word_t expr(char *e, bool *success)
 {
+  *success = true;
+
   /* 1. 词法分析 */
   if (!make_token(e))
   {
@@ -316,52 +356,50 @@ word_t expr(char *e, bool *success)
     return 0;
   }
 
+  /* 2. 二次标记：区分 * (乘法/解引用) 和 - (减法/取反) */
   for (int i = 0; i < nr_token; i++)
   {
     bool at_start = (i == 0);
-    bool prev_is_non_operand = !at_start && !is_operand(tokens[i - 1].type);
+    bool prev_is_op = !at_start && !is_operand(tokens[i - 1].type);
 
-    if (tokens[i].type == TK_MUL && (at_start || prev_is_non_operand))
+    if (tokens[i].type == TK_MUL && (at_start || prev_is_op))
     {
-      tokens[i].type = TK_REF;
-      *success = isa_reg_str2val(tokens[i].str, success);
+      tokens[i].type = TK_DEREF;
     }
 
-    if (tokens[i].type == TK_SUB && (at_start || prev_is_non_operand))
+    if (tokens[i].type == TK_SUB && (at_start || prev_is_op))
     {
       tokens[i].type = TK_NEG;
     }
   }
 
+  /* 3. 空表达式 */
   if (nr_token == 0)
   {
     *success = false;
     return 0;
   }
 
-  *success = true;
-  return eval(0, nr_token - 1);
+  /* 4. 递归求值 */
+  return eval(0, nr_token - 1, success);
 }
 
 /* ================================================================
  *  expr 测试函数
- *  用法：
- *    1. GDB 中:  call test_expr("1+2", 3)
- *       测试单个表达式，期望十进制值 expected（仅低位比较，兼容 hex 默认）
- *    2. GDB 中:  call test_expr_all()
- *       运行预设的全部测试用例
+ *  GDB 中调用:
+ *    call test_expr("1+2", 3)    — 单测
+ *    call test_expr_all()        — 全测
  * ================================================================ */
 
-/* 单个测试：expr(expr_str) == expected ? */
 static int test_one(const char *s, uint32_t expected)
 {
   bool success = false;
   uint32_t result = expr((char *)s, &success);
 
-  printf("expr(\"%s\") = %u (0x%x), success=%s, expect=%u (0x%x)",
+  printf("expr(\"%s\") = %u (0x%08x), success=%s, expect=%u",
          s, result, result,
          success ? "true" : "false",
-         expected, expected);
+         expected);
 
   if (!success)
   {
@@ -377,9 +415,6 @@ static int test_one(const char *s, uint32_t expected)
   return 0;
 }
 
-/* 以下两个是外部可见的入口，GDB 可 call */
-
-/* 测试单个表达式，expected 是十进制（strtoul base 16 下的值） */
 int test_expr(const char *s, uint32_t expected)
 {
   printf("=== test_expr ===\n");
@@ -388,71 +423,65 @@ int test_expr(const char *s, uint32_t expected)
   return fail;
 }
 
-/* 运行全部预设测试用例 */
 int test_expr_all(void)
 {
   printf("=== test_expr_all ===\n");
   int fail = 0;
 
-  /* 注：NEMU expr 默认用 strtoul(..., 16) 解析数字，
-   *     所以 "10" = 16（不是 10）
-   */
+  /* 单数字 */
+  fail += test_one("0",   0);
+  fail += test_one("1",   1);
+  fail += test_one("123", 123);
 
-  /* ---- 单数字 ---- */
-  fail += test_one("0", 0x0);
-  fail += test_one("1", 0x1);
-  fail += test_one("10", 0x10); // 十六进制：10 = 16
+  /* 加减乘除 */
+  fail += test_one("1+2",   3);
+  fail += test_one("5-3",   2);
+  fail += test_one("2*3",   6);
+  fail += test_one("8/2",   4);
 
-  /* ---- 加减乘除 ---- */
-  fail += test_one("1+2", 0x3);
-  printf("11111!!!!!!!!");
-  fail += test_one("5-3", 0x2);
-  printf("22222!!!!!!!!");
-  fail += test_one("2*3", 0x6);
-  printf("33333!!!!!!!!");
-  fail += test_one("8/2", 0x4);
+  /* 括号 */
+  fail += test_one("(1+2)",     3);
+  fail += test_one("(1+2)*3",   9);
+  fail += test_one("2*(3+4)",  14);
+  fail += test_one("((1+2))",   3);
 
-  /* ---- 括号 ---- */
-  fail += test_one("(1+2)", 0x3);
-  fail += test_one("(1+2)*3", 0x9); // 3*3=9
-  fail += test_one("2*(3+4)", 0xe); // 2*7=14=0xe
-  fail += test_one("((1+2))", 0x3);
+  /* 优先级 */
+  fail += test_one("1+2*3",   7);   // 1+(2*3)
+  fail += test_one("2*3+4",  10);   // (2*3)+4
+  fail += test_one("2+3*4",  14);
+  fail += test_one("1-2+3",   2);   // left assoc
 
-  /* ---- 运算符优先级 ---- */
-  fail += test_one("1+2*3", 0x7); // 1+6=7
-  fail += test_one("2*3+4", 0xa); // 6+4=10=0xa
-  fail += test_one("2+3*4", 0xe); // 2+12=14=0xe
-  fail += test_one("1-2+3", 0x2); // left assoc: (1-2)+3=2
+  /* 空格 */
+  fail += test_one(" 1 + 2 ",       3);
+  fail += test_one("( 1 + 2 ) * 3", 9);
 
-  /* ---- 空格 ---- */
-  fail += test_one(" 1 + 2 ", 0x3);
-  fail += test_one("( 1 + 2 ) * 3", 0x9);
+  /* 比较 */
+  fail += test_one("1==1",   1);
+  fail += test_one("1==2",   0);
+  fail += test_one("1!=2",   1);
+  fail += test_one("2!=2",   0);
 
-  /* ---- 比较运算 ---- */
-  fail += test_one("1==1", 0x1); // true
-  fail += test_one("1==2", 0x0); // false
-  fail += test_one("1!=2", 0x1); // true
-  fail += test_one("2!=2", 0x0); // false
+  /* 逻辑与 */
+  fail += test_one("1&&1",   1);
+  fail += test_one("1&&0",   0);
+  fail += test_one("0&&1",   0);
+  fail += test_one("2&&3",   1);
 
-  /* ---- 逻辑与 ---- */
-  fail += test_one("1&&1", 0x1);
-  fail += test_one("1&&0", 0x0);
-  fail += test_one("0&&1", 0x0);
-  fail += test_one("0&&0", 0x0);
-  fail += test_one("2&&3", 0x1); // both non-zero
+  /* 一元取反 */
+  fail += test_one("-1",     0xffffffff);
+  fail += test_one("-0",     0);
+  fail += test_one("1+-2",   0xffffffff);
+  fail += test_one("-(1+2)", 0xfffffffd);
 
-  /* ---- 一元取反 ---- */
-  fail += test_one("-1", 0xffffffff); // -(1)
-  fail += test_one("-0", 0x0);
-  fail += test_one("1+-2", 0xffffffff);   // 1+(-2)
-  fail += test_one("-(1+2)", 0xfffffffd); // -(3)
+  /* 组合 */
+  fail += test_one("1+2==3",     1);
+  fail += test_one("(1+2)*3!=9", 0);
+  fail += test_one("1+2*3==7",   1);
 
-  /* ---- 组合 ---- */
-  fail += test_one("1+2==3", 0x1);     // (1+2)==3
-  fail += test_one("(1+2)*3!=9", 0x0); // 9!=9 is false
-  fail += test_one("1+2*3==7", 0x1);   // 1+6==7
+  /* 解引用 & 寄存器（需要 NEMU 运行中才能正确测试，这里留空框架） */
+  // fail += test_one("*0x80000000", ???);  // 依赖实际内存
+  // fail += test_one("$0", 0);             // RISC-V zero 寄存器
 
-  printf("=== test_expr_all: %d/%d failed ===\n", fail, fail ? 1 : 0 /* just count */);
   printf("=== total failures: %d ===\n", fail);
   return fail;
 }
