@@ -56,16 +56,8 @@ WP *new_wp()
   assert(free_ != NULL);
   WP *temp = free_;
   free_ = free_->next;
-  // Head is not NULL
-  if (head != NULL)
-  {
-    free_->next = head;
-    head = free_;
-  }
-  else // Head is NULL
-  {
-    head = temp;
-  }
+  temp->next = head;
+  head = temp;
   head_num++;
   head->NO = head_num;
   free_num--;
@@ -77,20 +69,25 @@ void free_wp(WP *wp)
 {
   assert(head != NULL);
 
-  WP *temp = head;
-  head = head->next;
-  // Head is not NULL
-  if (free_ != NULL)
+  /* remove wp from used list */
+  if (head == wp)
   {
-    head->next = free_;
-    free_ = head;
+    head = head->next;
   }
-  else // Head is NULL
+  else
   {
-    free_ = temp;
+    WP *prev = head;
+    while (prev != NULL && prev->next != wp)
+      prev = prev->next;
+    if (prev != NULL)
+      prev->next = wp->next;
   }
-  free_->NO = 0;
-  free_->watch_num = NULL;
+
+  /* return wp to free list */
+  wp->next = free_;
+  free_ = wp;
+  wp->watch_num = NULL;
+  wp->is_breakpoint = false;
   head_num--;
   free_num++;
 }
@@ -98,9 +95,10 @@ void free_wp(WP *wp)
 void get_new_wp(char *e)
 {
   bool success = true;
-  head = new_wp();
+  new_wp();
   head->watch_num = e;
   head->prev_val = expr(e, &success);
+  head->is_breakpoint = false;
   printf("Hardware watchpoint %d: %s\n\n", head->NO, e);
 }
 
@@ -110,11 +108,11 @@ void watchpoint_check()
   for (int i = 0; i < head_num; i++)
   {
     bool success = true;
-    word_t new_val = expr(ite->next->watch_num, &success);
-    if (new_val != ite->next->prev_val)
+    word_t new_val = expr(ite->watch_num, &success);
+    if (new_val != ite->prev_val)
     {
-      ite->next->prev_val = new_val;
-      if (ite->next->is_breakpoint)
+      ite->prev_val = new_val;
+      if (ite->is_breakpoint)
       {
         /* breakpoint: only stop on 0->1 transition */
         if (new_val == 1)
@@ -137,7 +135,7 @@ void set_breakpoint(char *addr_str)
   snprintf(expr_str, sizeof(expr_str), "$pc == %s", addr_str);
 
   bool success = true;
-  head = new_wp();
+  new_wp();
   head->watch_num = strdup(expr_str);
   head->prev_val = expr(expr_str, &success);
   head->is_breakpoint = true;
@@ -155,37 +153,37 @@ void info_watchpoints()
   WP *ite = head;
   for (int i = 0; i < head_num; i++)
   {
-    printf("%-8d%-15s%s\n", ite->next->NO,
-           ite->next->is_breakpoint ? "breakpoint" : "hw watchpoint",
-           ite->next->watch_num);
+    printf("%-8d%-15s%s\n", ite->NO,
+           ite->is_breakpoint ? "breakpoint" : "hw watchpoint",
+           ite->watch_num);
     ite = ite->next;
   }
 }
 
 void delete_wp(int n)
 {
+  WP *prev = NULL;
   WP *ite = head;
   for (int i = 0; i < head_num; i++)
   {
-    if (head->NO == n)
+    if (ite->NO == n)
     {
-      head = head->next;
+      if (prev == NULL)
+        head = ite->next;
+      else
+        prev->next = ite->next;
+
       ite->next = free_;
       free_ = ite;
-      Log("Free");
+      ite->watch_num = NULL;
+      ite->is_breakpoint = false;
+      head_num--;
+      free_num++;
+      printf("Deleted watchpoint/breakpoint %d.\n", n);
+      return;
     }
-    else if (ite->next->NO == n)
-    {
-      WP *temp = ite->next;
-      ite->next->next = temp->next;
-      temp->next = free_;
-      free_ = temp;
-      Log("Free");
-    }
-    else
-    {
-      ite = ite->next;
-    }
+    prev = ite;
+    ite = ite->next;
   }
-  return;
+  printf("No watchpoint/breakpoint with number %d.\n", n);
 }
