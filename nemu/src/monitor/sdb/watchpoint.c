@@ -26,6 +26,7 @@ typedef struct watchpoint
   /* TODO: Add more members if necessary */
   char *watch_num;
   word_t prev_val;
+  bool is_breakpoint;
 
 } WP;
 
@@ -113,11 +114,34 @@ void watchpoint_check()
     if (new_val != ite->next->prev_val)
     {
       ite->next->prev_val = new_val;
-      nemu_state.state = NEMU_STOP;
+      if (ite->next->is_breakpoint)
+      {
+        /* breakpoint: only stop on 0->1 transition */
+        if (new_val == 1)
+          nemu_state.state = NEMU_STOP;
+      }
+      else
+      {
+        nemu_state.state = NEMU_STOP;
+      }
     }
     ite = ite->next;
   }
   return;
+}
+
+void set_breakpoint(char *addr_str)
+{
+  /* construct expression "$pc == ADDR" */
+  char expr_str[64];
+  snprintf(expr_str, sizeof(expr_str), "$pc == %s", addr_str);
+
+  bool success = true;
+  head = new_wp();
+  head->watch_num = strdup(expr_str);
+  head->prev_val = expr(expr_str, &success);
+  head->is_breakpoint = true;
+  printf("Breakpoint %d at %s\n", head->NO, addr_str);
 }
 
 void info_watchpoints()
@@ -131,7 +155,9 @@ void info_watchpoints()
   WP *ite = head;
   for (int i = 0; i < head_num; i++)
   {
-    printf("%-8d%-15s%s\n", ite->next->NO, "hw watchpoint", ite->next->watch_num);
+    printf("%-8d%-15s%s\n", ite->next->NO,
+           ite->next->is_breakpoint ? "breakpoint" : "hw watchpoint",
+           ite->next->watch_num);
     ite = ite->next;
   }
 }

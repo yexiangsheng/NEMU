@@ -74,6 +74,8 @@ static int cmd_w_expr(char *args);
 
 static int cmd_delete(char *args);
 
+static int cmd_breakpoint(char *args);
+
 static struct
 {
   const char *name;
@@ -88,7 +90,8 @@ static struct
     {"x", "'x N EXPR',Evaluate the expression EXPR, use the result as the starting memory address, and output N consecutive 4-byte values in hexadecimal format.", cmd_scanf_mem},
     {"p", "'p EXPR',Evaluate the expression EXPR. For the supported operations in EXPR, refer to the Expression Evaluation section in the Debugging chapter.", cmd_p_expr},
     {"w", "'w EXPR',Pause program execution when the value of expression EXPR changes.", cmd_w_expr},
-    {"d", "Delete the watchpoint with sequence number N.", cmd_delete}
+    {"d", "Delete the watchpoint with sequence number N.", cmd_delete},
+    {"b", "'b ADDR',Set a breakpoint at ADDR.", cmd_breakpoint}
     /* TODO: Add more commands */
 
 };
@@ -259,6 +262,20 @@ static int cmd_delete(char *args)
   else
   {
     Log("The EXPR is NULL!!\n");
+  }
+  return 1;
+}
+
+static int cmd_breakpoint(char *args)
+{
+  char *arg = strtok(NULL, " ");
+  if (arg != NULL)
+  {
+    set_breakpoint(arg);
+  }
+  else
+  {
+    Log("Usage: b ADDR\n");
   }
   return 1;
 }

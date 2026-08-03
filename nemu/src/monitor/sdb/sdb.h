@@ -25,6 +25,7 @@ void watchpoint_check();
 void get_new_wp(char *expr);
 void delete_wp(int n);
 void info_watchpoints();
+void set_breakpoint(char *addr_str);
 #endif
 
 #endif
