@@ -22,7 +22,7 @@ CXX := g++
 endif
 LD := $(CXX)
 INCLUDES = $(addprefix -I, $(INC_PATH))
-CFLAGS  := -O2 -MMD -Wall -Werror $(INCLUDES) $(CFLAGS) -save-temps
+CFLAGS  := -O2 -MMD -Wall -Werror $(INCLUDES) $(CFLAGS)
 LDFLAGS := -O2 $(LDFLAGS)
 
 OBJS = $(SRCS:%.c=$(OBJ_DIR)/%.o) $(CXXSRC:%.cc=$(OBJ_DIR)/%.o)
@@ -40,12 +40,21 @@ $(OBJ_DIR)/%.o: %.cc
 	@$(CXX) $(CFLAGS) $(CXXFLAGS) -c -o $@ $<
 	$(call call_fixdep, $(@:.o=.d), $@)
 
+# 预处理某个 .c 文件，例如: make preprocess SRC=src/cpu/cpu-exec.c
+$(OBJ_DIR)/%.i: %.c
+	@echo + PREPROCESS $< '->' $@
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS) -E -o $@ $<
+
+
 # Depencies
 -include $(OBJS:.o=.d)
 
 # Some convenient rules
 
-.PHONY: app clean
+.PHONY: app clean preprocess
+
+preprocess: $(OBJ_DIR)/$(SRC:.c=.i)
 
 app: $(BINARY)
 
