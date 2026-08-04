@@ -63,10 +63,14 @@ enum
   {                                                          \
     *imm = (SEXT(BITS(i, 31, 25), 7) << 5) | BITS(i, 11, 7); \
   } while (0)
-#define immUJ()                       \
-  do                                  \
-  {                                   \
-    *imm = SEXT(BITS(i, 31, 12), 20); \
+#define immUJ()                                                          \
+  do                                                                     \
+  {                                                                      \
+    uint32_t val = (BITS(i, 31, 31) << 20) |                             \
+                   (BITS(i, 19, 12) << 12) |                             \
+                   (BITS(i, 20, 20) << 11) |                             \
+                   (BITS(i, 30, 21) << 1);                                \
+    *imm = SEXT(val, 21);                                                \
   } while (0)
 
 static void
@@ -128,7 +132,7 @@ static int decode_exec(Decode *s)
   INSTPAT("??????? 00001 00000 000 00000 11001 11", ret, I, s->dnpc = gpr(1));
   INSTPAT("??????? ????? ????? 010 ????? 01000 11", sw, S, Mw(src1 + imm, 4, src2));
   INSTPAT("0000000 00000 ????? 000 ????? 00100 11", mv, I, R(rd) = src1);
-  INSTPAT("??????? ????? ????? ??? 00000 11011 11", j, UJ, s->dnpc = (imm << 1 | 0));
+  INSTPAT("??????? ????? ????? ??? 00000 11011 11", j, UJ, s->dnpc = s->pc + (imm << 1));
   INSTPAT("??????? ????? ????? ??? ????? ????? ??", inv, N, INV(s->pc));
   INSTPAT_END();
 
