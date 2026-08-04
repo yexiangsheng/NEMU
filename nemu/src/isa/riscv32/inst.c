@@ -70,7 +70,7 @@ enum
                    (BITS(i, 19, 12) << 12) |                             \
                    (BITS(i, 20, 20) << 11) |                             \
                    (BITS(i, 30, 21) << 1);                                \
-    *imm = SEXT(val, 21);                                                \
+    *imm = ((int32_t)SEXT(val, 21)) >> 1;                                \
   } while (0)
 
 static void
