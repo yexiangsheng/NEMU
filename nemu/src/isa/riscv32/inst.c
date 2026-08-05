@@ -118,6 +118,7 @@ decode_operand(Decode *s, int *rd, word_t *src1, word_t *src2, word_t *imm, int 
     {
       immSB();
     }
+    break;
   case TYPE_N:
     break;
   default:
