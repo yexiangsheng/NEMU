@@ -156,3 +156,6 @@ ifdef CONFIG_TARGET_AM
 else
 	include $(NEMU_HOME)/scripts/native.mk
 endif
+
+# define NEMU_HOME
+#  @echo "Hello NEMU_HOME"

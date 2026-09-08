@@ -19,7 +19,8 @@
 # 任何 Makefile 只要 include 本文件即可获得四样东西:
 #   1) 五要素日志宏: $(call log_debug/info/warn/error, 消息)
 #        输出 = 来源($(warning) 自动加 文件:行号:) + 时间戳 + 级别 + 上下文 + 信息
-#   2) 构建留痕目标: build-log —— 每次构建自动生成 trace/dryrun 两份快照
+#   2) 构建留痕目标: build-log —— 每次构建自动生成 trace/dryrun/database
+#        三份快照 x (.txt 纯净 + .ansi 彩色) 两种格式
 #   3) 日志渲染器:   logview  —— 构建时自动写出 .ansi 彩色版(cat 即渲染,
 #        VS Code 终端里 文件:行号 可 Ctrl+点击 跳转); 查看时也可 make logview
 #        对 .txt 即时上色, 原始 .txt 始终保持无颜色码的纯净格式
@@ -65,9 +66,11 @@ log_warn  =          $(warning [$(LOG_TS)] [WARN ] [$(LOG_CTX)] $(1))
 log_error =          $(error  [$(LOG_TS)] [ERROR] [$(LOG_CTX)] $(1)))
 
 #------------------------------------------------------------------------------
-# 构建留痕: 每次构建自动生成两份调试快照 x 两种格式, 时间戳 = 构建当刻
-#   trace-<ts>  : make -n --trace $(LOG_GOAL) —— 本次构建的决策过程
-#   dryrun-<ts> : make -nB $(LOG_GOAL)         —— 全量重建的完整命令清单
+# 构建留痕: 每次构建自动生成三份调试快照 x 两种格式, 时间戳 = 构建当刻
+#   trace-<ts>    : make -n --trace $(LOG_GOAL) —— 本次构建的决策过程
+#   dryrun-<ts>   : make -nB $(LOG_GOAL)         —— 全量重建的完整命令清单
+#   database-<ts> : make -np $(LOG_GOAL)         —— 完整数据库(全部变量/规则,
+#                   含内置) + 干跑命令清单, 即 -p 与 -n 的合体快照
 #   每种两份: .txt 原始纯净(grep/工具友好) + .ansi 彩色版(cat 即渲染).
 #   同一流用 tee 分叉: 一份原样落盘, 一份过 logview render 染色后落盘,
 #   "渲染"完全发生在构建时刻, 无需手动敲任何查看命令.
@@ -89,7 +92,10 @@ ifeq ($(LOG_NESTED),)
 	  | tee $(LOG_DIR)/trace-$$ts.txt | $(LOGVIEW) render > $(LOG_DIR)/trace-$$ts.ansi; \
 	echo "build-log: -> $(LOG_DIR)/dryrun-$$ts.txt + .ansi (make -nB $(LOG_GOAL))"; \
 	{ banner 'dryrun : make -nB'; LOG_NESTED=1 $(MAKE) -nB $(LOG_GOAL) 2>&1; } \
-	  | tee $(LOG_DIR)/dryrun-$$ts.txt | $(LOGVIEW) render > $(LOG_DIR)/dryrun-$$ts.ansi
+	  | tee $(LOG_DIR)/dryrun-$$ts.txt | $(LOGVIEW) render > $(LOG_DIR)/dryrun-$$ts.ansi; \
+	echo "build-log: -> $(LOG_DIR)/database-$$ts.txt + .ansi (make -np $(LOG_GOAL))"; \
+	{ banner 'database : make -np'; LOG_NESTED=1 $(MAKE) -np $(LOG_GOAL) 2>&1; } \
+	  | tee $(LOG_DIR)/database-$$ts.txt | $(LOGVIEW) render > $(LOG_DIR)/database-$$ts.ansi
 else
 	@echo "build-log: LOG_NESTED is set, skip (nested or manually disabled)"
 endif
