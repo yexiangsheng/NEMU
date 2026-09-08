@@ -24,6 +24,8 @@
 #   2) call + patsubst   : 去掉 menuconfig 配置值自带的引号
 #   3) shell + find      : 递归收集 filelist.mk 和 .c 源文件
 #   4) if                : 按 menuconfig 开关条件展开编译选项
+#   5) 调试工具箱        : include scripts/Log.mk(五要素日志宏 + 构建留痕),
+#                         独立可复用模块, 其它 Makefile 也可 include
 #
 # 注意区分"指令"与"函数":
 #   ifeq/ifneq/ifdef 是指令, 控制 make 读取哪些行;
@@ -118,6 +120,25 @@ CFLAGS_BUILD += $(if $(CONFIG_CC_ASAN),-fsanitize=address,)
 CFLAGS_TRACE += -DITRACE_COND=$(if $(CONFIG_ITRACE_COND),$(call remove_quote,$(CONFIG_ITRACE_COND)),true)
 CFLAGS  += $(CFLAGS_BUILD) $(CFLAGS_TRACE) -D__GUEST_ISA__=$(GUEST_ISA)
 LDFLAGS += $(CFLAGS_BUILD)
+
+#------------------------------------------------------------------------------
+# [5] 调试工具箱: 五要素日志宏 + 构建留痕, 已抽出为可复用模块
+#   nemu/scripts/Log.mk —— 其它 Makefile 也可以 include 它获得同一套工具.
+# 项目相关定制(工具箱本身不认识 NEMU 的任何变量):
+#   LOG_CTX  在默认 goal 之外加上 isa 字段;
+#   run-env  挂载点: 写在 native.mk 定义 run-env 之前 => 依赖链最前面,
+#            串行 make 先留痕后构建, trace 里才有本次的编译动作.
+# 用法: make DBG=1 -n (看日志) / make run (自动留痕: .txt 纯净 + .ansi 彩色)
+#       make run LOG_NESTED=1 (临时关闭留痕) / make logview (即时上色查看)
+#------------------------------------------------------------------------------
+include $(NEMU_HOME)/scripts/Log.mk
+
+LOG_CTX  = goal=$(if $(MAKECMDGOALS),$(MAKECMDGOALS),<default>) isa=$(GUEST_ISA)
+run-env: build-log
+
+# 示例调用: 无 DBG 时全部是空操作, 不影响正常构建
+$(call log_info,  NAME=$(NAME) SRCS=[$(words $(SRCS)) files] CFLAGS=[$(words $(CFLAGS)) flags])
+$(call log_debug, SRCS=$(SRCS))
 
 #------------------------------------------------------------------------------
 # 引入 menuconfig 相关规则(配置界面本身).
