@@ -128,7 +128,8 @@ LDFLAGS += $(CFLAGS_BUILD)
 #   LOG_CTX  在默认 goal 之外加上 isa 字段;
 #   run-env  挂载点: 写在 native.mk 定义 run-env 之前 => 依赖链最前面,
 #            串行 make 先留痕后构建, trace 里才有本次的编译动作.
-# 用法: make DBG=1 -n (看日志) / make run (自动留痕: .txt 纯净 + .ansi 彩色)
+# 用法: make DBG=1 -n (看日志) / make run (自动留痕: .txt+.ansi+.jsonl 三格式,
+#       输出目录由 LOG_DIR 控制, 默认 log/, 如 make run LOG_DIR=/tmp/buildlog)
 #       make run LOG_DATABASE=false (单独关某类快照, 同类开关 LOG_TRACE/LOG_DRYRUN)
 #       make run LOG_NESTED=1 (临时全关) / make logview (即时上色查看)
 #------------------------------------------------------------------------------

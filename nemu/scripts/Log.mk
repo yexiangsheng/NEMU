@@ -20,7 +20,7 @@
 #   1) 五要素日志宏: $(call log_debug/info/warn/error, 消息)
 #        输出 = 来源($(warning) 自动加 文件:行号:) + 时间戳 + 级别 + 上下文 + 信息
 #   2) 构建留痕目标: build-log —— 每次构建自动生成 trace/dryrun/database
-#        三份快照 x (.txt 纯净 + .ansi 彩色) 两种格式
+#        三份快照 x (.txt 纯净 + .ansi 彩色 + .jsonl 结构化) 三种格式
 #   3) 日志渲染器:   logview  —— 构建时自动写出 .ansi 彩色版(cat 即渲染,
 #        VS Code 终端里 文件:行号 可 Ctrl+点击 跳转); 查看时也可 make logview
 #        对 .txt 即时上色, 原始 .txt 始终保持无颜色码的纯净格式
@@ -33,7 +33,7 @@
 #   $(call log_info, hello)  # 打日志
 #
 # 可调参数(均 ?= 定义, include 方可覆盖):
-#   LOG_DIR   快照输出目录         默认 log
+#   LOG_DIR   快照输出目录(所有快照的根, 改它即整体挪窝)  默认 log
 #   LOG_GOAL  build-log 追踪的目标 默认 run
 #   LOG_CTX   日志的"上下文"字段   默认 goal=<命令行目标>
 #   DBG       级别开关: 1=INFO及以上, 2=+DEBUG; WARN/ERROR 永远输出
@@ -42,6 +42,10 @@
 # 手动设置即为逃生口 —— 临时关闭留痕.
 #==============================================================================
 
+#---- 输出目录: 暴露出来的唯一路径参数 ----------------------------------------
+# trace/dryrun/database 的 .txt/.ansi/.jsonl 全部落在这个目录下.
+# 想挪窝改这里; 也可命令行临时覆盖:  make run LOG_DIR=/tmp/buildlog
+#------------------------------------------------------------------------------
 LOG_DIR  ?= log
 LOG_GOAL ?= run
 
@@ -78,9 +82,11 @@ log_error =          $(error  [$(LOG_TS)] [ERROR] [$(LOG_CTX)] $(1)))
 #   dryrun-<ts>   : make -nB $(LOG_GOAL)         —— 全量重建的完整命令清单
 #   database-<ts> : make -np $(LOG_GOAL)         —— 完整数据库(全部变量/规则,
 #                   含内置) + 干跑命令清单, 即 -p 与 -n 的合体快照
-#   每种两份: .txt 原始纯净(grep/工具友好) + .ansi 彩色版(cat 即渲染).
-#   同一流用 tee 分叉: 一份原样落盘, 一份过 logview render 染色后落盘,
-#   "渲染"完全发生在构建时刻, 无需手动敲任何查看命令.
+#   每种三份: .txt 原始纯净(grep/工具友好) + .ansi 彩色版(cat 即渲染)
+#           + .jsonl 结构化(每行一条 JSON 记录, jq/日志系统直接消费).
+#   .txt/.ansi 出自同一流: tee 分叉, 一份原样落盘, 一份过 logview render
+#   染色落盘, "渲染"完全发生在构建时刻; .jsonl 再以 .txt 为源二次加工:
+#   逐行分类(decision/gcc/git/...) + JSON 转义, 字段含 ts/kind/goal/seq/cat/msg.
 #
 # 三类快照各带开关: LOG_TRACE / LOG_DRYRUN / LOG_DATABASE (见文件头部参数表),
 #   传 true/1/y/on 之外的值即关:  make run LOG_DATABASE=false
@@ -94,23 +100,25 @@ log_error =          $(error  [$(LOG_TS)] [ERROR] [$(LOG_CTX)] $(1)))
 build-log:
 ifeq ($(LOG_NESTED),)
 	@mkdir -p $(LOG_DIR); \
-	ts=$$(date +%Y%m%d-%H%M%S); \
+	ts=$$(date +%Y%m%d-%H%M%S); iso=$$(date '+%F %T'); \
 	banner() { printf '# ==== build-log snapshot ====\n# kind : %s\n# goal : %s\n# time : %s\n# host : %s\n\n' \
-	  "$$1" "$(LOG_GOAL)" "$$(date '+%F %T')" "$$(hostname)"; }; \
+	  "$$1" "$(LOG_GOAL)" "$$iso" "$$(hostname)"; }; \
 	snap() { \
 	  kind=$$1; on=$$2; shift 2; \
 	  case $$on in \
 	    true|1|y|on) \
-	      echo "build-log: -> $(LOG_DIR)/$$kind-$$ts.txt + .ansi (make $$*)"; \
+	      echo "build-log: -> $(LOG_DIR)/$$kind-$$ts.{txt,ansi,jsonl} (make $$*)"; \
 	      { banner "$$kind : make $$*"; LOG_NESTED=1 $(MAKE) "$$@" 2>&1; } \
-	        | tee $(LOG_DIR)/$$kind-$$ts.txt | $(LOGVIEW) render > $(LOG_DIR)/$$kind-$$ts.ansi \
+	        | tee $(LOG_DIR)/$$kind-$$ts.txt | $(LOGVIEW) render > $(LOG_DIR)/$$kind-$$ts.ansi; \
+	      $(LOGVIEW) jsonl "$$kind" '$(LOG_GOAL)' "$$iso" \
+	        < $(LOG_DIR)/$$kind-$$ts.txt > $(LOG_DIR)/$$kind-$$ts.jsonl \
 	    ;; \
 	    *) echo "build-log: -- skip $$kind (开关值 '$$on')" ;; \
 	  esac; \
 	}; \
-	snap trace    '$(LOG_TRACE)'    -n --trace $(LOG_GOAL)/trace; \
-	snap dryrun   '$(LOG_DRYRUN)'   -nB        $(LOG_GOAL)/dryrun; \
-	snap database '$(LOG_DATABASE)' -np        $(LOG_GOAL)/database
+	snap trace    '$(LOG_TRACE)'    -n --trace $(LOG_GOAL); \
+	snap dryrun   '$(LOG_DRYRUN)'   -nB        $(LOG_GOAL); \
+	snap database '$(LOG_DATABASE)' -np        $(LOG_GOAL)
 else
 	@echo "build-log: LOG_NESTED is set, skip (nested or manually disabled)"
 endif
