@@ -75,7 +75,9 @@ static void ring_buf_record(ring_buf *rb, const char *logbuf)
     init_ring_buf(rb, IRINGBUF_CAPACITY, sizeof(((Decode *)0)->logbuf));
   }
   snprintf(rb->tail, rb->size, "%s", logbuf);
+
   rb->current = rb->tail; // 当前正在执行的指令
+
   ring_buf_next(rb, &rb->tail);
   if (rb->full)
   {
