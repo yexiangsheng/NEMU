@@ -108,9 +108,9 @@ ifeq ($(LOG_NESTED),)
 	    *) echo "build-log: -- skip $$kind (开关值 '$$on')" ;; \
 	  esac; \
 	}; \
-	snap trace    '$(LOG_TRACE)'    -n --trace $(LOG_GOAL); \
-	snap dryrun   '$(LOG_DRYRUN)'   -nB        $(LOG_GOAL); \
-	snap database '$(LOG_DATABASE)' -np        $(LOG_GOAL)
+	snap trace    '$(LOG_TRACE)'    -n --trace $(LOG_GOAL)/trace; \
+	snap dryrun   '$(LOG_DRYRUN)'   -nB        $(LOG_GOAL)/dryrun; \
+	snap database '$(LOG_DATABASE)' -np        $(LOG_GOAL)/database
 else
 	@echo "build-log: LOG_NESTED is set, skip (nested or manually disabled)"
 endif
