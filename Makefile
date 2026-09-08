@@ -21,3 +21,10 @@ submit:
 	STUID=$(STUID) STUNAME=$(STUNAME) bash -c "$$(curl -s http://why.ink:8080/static/submit.sh)"
 
 .PHONY: default submit
+
+# define git_commit
+# -@git add $(NEMU_HOME)/.. -A --ignore-errors
+# -@while (test -e .git/index.lock);de sleep 0.1;done
+# -$(echo "> $(1)" && echo $(STUDID) $(STDNAME) && uname -a &&uptime) | git commit -F - $(GITFLAGS)
+# -@sync 
+# endef
