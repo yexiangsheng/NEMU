@@ -28,6 +28,83 @@
  */
 #define MAX_INST_TO_PRINT 10
 
+#ifdef CONFIG_ITRACE
+#define IRINGBUF_CAPACITY 16 // iringbuf 最多记录的指令条数
+
+typedef struct ring_buf
+{
+  char *buffer;     // 存储区起始地址
+  char *buffer_end; // 存储区结束地址
+  char *head;       // 指向最旧的指令
+  char *tail;       // 指向下一条指令的写入位置
+  char *current;    // 指向最新写入的指令(即当前正在执行的指令)
+  size_t capacity;  // ring_buf 的最大容量
+  size_t size;      // 每条记录占用的字节数
+  bool full;        // 是否已经写满一圈
+} ring_buf;
+
+static ring_buf iringbuf;
+
+// 让指针 p 前移一条记录, 到达末尾后回到开头, 形成环
+static void ring_buf_next(ring_buf *rb, char **p)
+{
+  *p += rb->size;
+  if (*p == rb->buffer_end)
+  {
+    *p = rb->buffer;
+  }
+}
+
+static void init_ring_buf(ring_buf *rb, size_t capacity, size_t size)
+{
+  rb->buffer = malloc(capacity * size);
+  Assert(rb->buffer != NULL, "malloc for iringbuf failed");
+  memset(rb->buffer, 0, capacity * size);
+  rb->buffer_end = rb->buffer + capacity * size;
+  rb->capacity = capacity;
+  rb->size = size;
+  rb->head = rb->tail = rb->current = rb->buffer;
+  rb->full = false;
+}
+
+// 把当前指令的 trace 行写入环形缓冲区
+static void ring_buf_record(ring_buf *rb, const char *logbuf)
+{
+  if (rb->buffer == NULL)
+  {
+    init_ring_buf(rb, IRINGBUF_CAPACITY, sizeof(((Decode *)0)->logbuf));
+  }
+  snprintf(rb->tail, rb->size, "%s", logbuf);
+  rb->current = rb->tail; // 当前正在执行的指令
+  ring_buf_next(rb, &rb->tail);
+  if (rb->full)
+  {
+    // 已写满一圈: 最旧的记录被覆盖, head 跟着前移一条
+    ring_buf_next(rb, &rb->head);
+  }
+  else if (rb->tail == rb->head)
+  {
+    rb->full = true; // tail 追上 head, 说明已经写满一圈
+  }
+}
+
+// 从旧到新输出缓冲区中的所有指令, 最新的一条(当前指令)用 --> 标出
+static void trace_output_ringbuf(ring_buf *rb)
+{
+  if (rb->buffer == NULL || (!rb->full && rb->head == rb->tail))
+  {
+    return; // 还没有记录过指令
+  }
+  size_t count = rb->full ? rb->capacity : (size_t)(rb->tail - rb->buffer) / rb->size;
+  char *p = rb->head;
+  for (size_t i = 0; i < count; i++)
+  {
+    printf("%s%s\n", p == rb->current ? "--> " : "    ", p);
+    ring_buf_next(rb, &p);
+  }
+}
+#endif // CONFIG_ITRACE
+
 CPU_state cpu = {};
 uint64_t g_nr_guest_inst = 0;
 static uint64_t g_timer = 0; // unit: us
@@ -42,6 +119,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc)
   if (ITRACE_COND)
   {
     log_write("%s\n", _this->logbuf);
+    IFDEF(CONFIG_ITRACE, ring_buf_record(&iringbuf, _this->logbuf));
   }
 #endif
 #ifdef CONFIG_WATCHPOINT
@@ -153,6 +231,7 @@ void cpu_exec(uint64_t n)
 
   case NEMU_END:
   case NEMU_ABORT:
+    IFDEF(CONFIG_ITRACE, trace_output_ringbuf(&iringbuf));
     Log("nemu: %s at pc = " FMT_WORD,
         (nemu_state.state == NEMU_ABORT ? ANSI_FMT("ABORT", ANSI_FG_RED) : (nemu_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) : ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
         nemu_state.halt_pc);
