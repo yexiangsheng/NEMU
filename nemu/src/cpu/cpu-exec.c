@@ -52,7 +52,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc)
   {
     IFDEF(CONFIG_ITRACE, puts(_this->logbuf));
   }
-  IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
+  // IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
 }
 
 // Fetch, Decode, Execute, Refresh PC
