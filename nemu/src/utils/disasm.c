@@ -68,12 +68,15 @@ void init_disasm()
 #endif
 }
 
-// Get disassembly code
-void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte)
+// Get disassembly code; return false if it cannot be disassembled (e.g. invalid encoding)
+bool try_disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte)
 {
   cs_insn *insn;
   size_t count = cs_disasm_dl(handle, code, nbyte, pc, 0, &insn);
-  assert(count == 1);
+  if (count != 1)
+  {
+    return false;
+  }
   // insn->mnemonic  →  "addi"       （操作码）
   // insn->op_str    →  "sp, sp, -4" （操作数）
   int ret = snprintf(str, size, "%s", insn->mnemonic);
@@ -83,4 +86,12 @@ void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte)
     snprintf(str + ret, size - ret, "\t%s", insn->op_str);
   }
   cs_free_dl(insn, count);
+  return true;
+}
+
+// Get disassembly code
+void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte)
+{
+  bool ok = try_disassemble(str, size, pc, code, nbyte);
+  assert(ok);
 }

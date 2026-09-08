@@ -16,6 +16,8 @@
 #include <cpu/cpu.h>
 #include <cpu/decode.h>
 #include <cpu/difftest.h>
+#include <memory/vaddr.h>
+#include <memory/paddr.h>
 #ifdef CONFIG_WATCHPOINT
 #include "../monitor/sdb/sdb.h"
 #endif
@@ -105,6 +107,27 @@ static void trace_output_ringbuf(ring_buf *rb)
     ring_buf_next(rb, &p);
   }
 }
+
+// 错误发生后, 从出错指令的下一条开始, 把内存中"还没执行到"的几条指令打印出来, 便于观察上下文
+// (按定长 4 字节顺序读内存, 适用于 RISC-V; x86 变长指令不适用)
+static void peek_next_insts(vaddr_t pc, int n)
+{
+  bool try_disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
+  printf("Instructions after the error (not executed yet):\n");
+  for (int k = 0; k < n; k++, pc += 4)
+  {
+    if (pc < PMEM_LEFT || pc + 3 > PMEM_RIGHT)
+    {
+      break; // 越出物理内存范围, 不再继续读
+    }
+    word_t inst = vaddr_read(pc, 4);
+    uint8_t *b = (uint8_t *)&inst;
+    char text[48];
+    bool ok = try_disassemble(text, sizeof(text), pc, b, 4);
+    printf(".... " FMT_WORD ": %02x %02x %02x %02x  %s\n",
+           pc, b[3], b[2], b[1], b[0], ok ? text : "(invalid)");
+  }
+}
 #endif // CONFIG_ITRACE
 
 CPU_state cpu = {};
@@ -166,8 +189,13 @@ static void exec_once(Decode *s, vaddr_t pc)
   p += space_len;
 
   void disassemble(char *str, int size, uint64_t pc, uint8_t *code, int nbyte);
-  disassemble(p, s->logbuf + sizeof(s->logbuf) - p,
-              MUXDEF(CONFIG_ISA_x86, s->snpc, s->pc), (uint8_t *)&s->isa.inst, ilen);
+  // 指令非法(INV)时跳过反汇编: 非法编码 capstone 解不出来,
+  // 否则 disassemble 里的 assert 会在 iringbuf 输出之前就把 NEMU 杀掉
+  if (nemu_state.state != NEMU_ABORT)
+  {
+    disassemble(p, s->logbuf + sizeof(s->logbuf) - p,
+                MUXDEF(CONFIG_ISA_x86, s->snpc, s->pc), (uint8_t *)&s->isa.inst, ilen);
+  }
 #endif
 }
 
@@ -199,6 +227,7 @@ static void statistic()
 
 void assert_fail_msg()
 {
+  IFDEF(CONFIG_ITRACE, trace_output_ringbuf(&iringbuf));
   isa_reg_display();
   statistic();
 }
@@ -234,6 +263,8 @@ void cpu_exec(uint64_t n)
   case NEMU_END:
   case NEMU_ABORT:
     IFDEF(CONFIG_ITRACE, trace_output_ringbuf(&iringbuf));
+    // 出错时(ABORT 或 BAD TRAP)再顺带打印出错位置之后未执行的几条指令
+    IFDEF(CONFIG_ITRACE, if (nemu_state.state == NEMU_ABORT || nemu_state.halt_ret != 0) { peek_next_insts(nemu_state.halt_pc + 4, 4); });
     Log("nemu: %s at pc = " FMT_WORD,
         (nemu_state.state == NEMU_ABORT ? ANSI_FMT("ABORT", ANSI_FG_RED) : (nemu_state.halt_ret == 0 ? ANSI_FMT("HIT GOOD TRAP", ANSI_FG_GREEN) : ANSI_FMT("HIT BAD TRAP", ANSI_FG_RED))),
         nemu_state.halt_pc);
