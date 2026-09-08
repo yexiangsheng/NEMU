@@ -45,6 +45,13 @@
 LOG_DIR  ?= log
 LOG_GOAL ?= run
 
+# 三类快照的独立开关: true/1/y/on = 开, 其余值(false/0/n/off/空) = 关.
+# 用法示例: make run LOG_DATABASE=false          只要 trace/dryrun
+#           make build-log LOG_TRACE=false LOG_DRYRUN=false   只要 database
+LOG_TRACE    ?= false
+LOG_DRYRUN   ?= true
+LOG_DATABASE ?= true
+
 #------------------------------------------------------------------------------
 # 五要素日志宏: 时间戳 + 级别 + 来源 + 上下文 + 信息
 #
@@ -75,6 +82,9 @@ log_error =          $(error  [$(LOG_TS)] [ERROR] [$(LOG_CTX)] $(1)))
 #   同一流用 tee 分叉: 一份原样落盘, 一份过 logview render 染色后落盘,
 #   "渲染"完全发生在构建时刻, 无需手动敲任何查看命令.
 #
+# 三类快照各带开关: LOG_TRACE / LOG_DRYRUN / LOG_DATABASE (见文件头部参数表),
+#   传 true/1/y/on 之外的值即关:  make run LOG_DATABASE=false
+#
 # 挂载方式: 在你项目的入口目标定义之前追加依赖, 如  run-env: build-log,
 #   串行 make 从左到右更新依赖 => 先留痕后构建, trace 里才有本次的编译动作.
 # 防无限递归: 含 $(MAKE) 的 recipe 行即使父 make 用 -n 也会真的执行,
@@ -87,15 +97,20 @@ ifeq ($(LOG_NESTED),)
 	ts=$$(date +%Y%m%d-%H%M%S); \
 	banner() { printf '# ==== build-log snapshot ====\n# kind : %s\n# goal : %s\n# time : %s\n# host : %s\n\n' \
 	  "$$1" "$(LOG_GOAL)" "$$(date '+%F %T')" "$$(hostname)"; }; \
-	echo "build-log: -> $(LOG_DIR)/trace-$$ts.txt + .ansi (make -n --trace $(LOG_GOAL))"; \
-	{ banner 'trace  : make -n --trace'; LOG_NESTED=1 $(MAKE) -n --trace $(LOG_GOAL) 2>&1; } \
-	  | tee $(LOG_DIR)/trace-$$ts.txt | $(LOGVIEW) render > $(LOG_DIR)/trace-$$ts.ansi; \
-	echo "build-log: -> $(LOG_DIR)/dryrun-$$ts.txt + .ansi (make -nB $(LOG_GOAL))"; \
-	{ banner 'dryrun : make -nB'; LOG_NESTED=1 $(MAKE) -nB $(LOG_GOAL) 2>&1; } \
-	  | tee $(LOG_DIR)/dryrun-$$ts.txt | $(LOGVIEW) render > $(LOG_DIR)/dryrun-$$ts.ansi; \
-	echo "build-log: -> $(LOG_DIR)/database-$$ts.txt + .ansi (make -np $(LOG_GOAL))"; \
-	{ banner 'database : make -np'; LOG_NESTED=1 $(MAKE) -np $(LOG_GOAL) 2>&1; } \
-	  | tee $(LOG_DIR)/database-$$ts.txt | $(LOGVIEW) render > $(LOG_DIR)/database-$$ts.ansi
+	snap() { \
+	  kind=$$1; on=$$2; shift 2; \
+	  case $$on in \
+	    true|1|y|on) \
+	      echo "build-log: -> $(LOG_DIR)/$$kind-$$ts.txt + .ansi (make $$*)"; \
+	      { banner "$$kind : make $$*"; LOG_NESTED=1 $(MAKE) "$$@" 2>&1; } \
+	        | tee $(LOG_DIR)/$$kind-$$ts.txt | $(LOGVIEW) render > $(LOG_DIR)/$$kind-$$ts.ansi \
+	    ;; \
+	    *) echo "build-log: -- skip $$kind (开关值 '$$on')" ;; \
+	  esac; \
+	}; \
+	snap trace    '$(LOG_TRACE)'    -n --trace $(LOG_GOAL); \
+	snap dryrun   '$(LOG_DRYRUN)'   -nB        $(LOG_GOAL); \
+	snap database '$(LOG_DATABASE)' -np        $(LOG_GOAL)
 else
 	@echo "build-log: LOG_NESTED is set, skip (nested or manually disabled)"
 endif

@@ -129,7 +129,8 @@ LDFLAGS += $(CFLAGS_BUILD)
 #   run-env  挂载点: 写在 native.mk 定义 run-env 之前 => 依赖链最前面,
 #            串行 make 先留痕后构建, trace 里才有本次的编译动作.
 # 用法: make DBG=1 -n (看日志) / make run (自动留痕: .txt 纯净 + .ansi 彩色)
-#       make run LOG_NESTED=1 (临时关闭留痕) / make logview (即时上色查看)
+#       make run LOG_DATABASE=false (单独关某类快照, 同类开关 LOG_TRACE/LOG_DRYRUN)
+#       make run LOG_NESTED=1 (临时全关) / make logview (即时上色查看)
 #------------------------------------------------------------------------------
 include $(NEMU_HOME)/scripts/Log.mk
 
