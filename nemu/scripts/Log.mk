@@ -52,9 +52,9 @@ LOG_GOAL ?= run
 # 三类快照的独立开关: true/1/y/on = 开, 其余值(false/0/n/off/空) = 关.
 # 用法示例: make run LOG_DATABASE=false          只要 trace/dryrun
 #           make build-log LOG_TRACE=false LOG_DRYRUN=false   只要 database
-LOG_TRACE    ?= false
-LOG_DRYRUN   ?= false
-LOG_DATABASE ?= false
+LOG_TRACE    ?= true
+LOG_DRYRUN   ?= true
+LOG_DATABASE ?= true
 
 #------------------------------------------------------------------------------
 # 五要素日志宏: 时间戳 + 级别 + 来源 + 上下文 + 信息
