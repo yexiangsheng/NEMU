@@ -89,6 +89,11 @@ void init_ftrace(const char *elf_file)
     // 5. 按地址排序, 供"包含查询"使用
     qsort(funcs, nr_func, sizeof(FuncSym), cmp_by_addr);
     Log("ftrace: loaded %d function symbols from %s", nr_func, elf_file);
+
+    // 6. 释放临时缓冲区(funcs 表及其中的 name 全程要用, 保留到进程结束)
+    free(shdrs);
+    free(syms);
+    free(strs);
 }
 
 // 返回包含 addr 的函数符号; 没有精确命中时取起始地址 <= addr 的最近一个
