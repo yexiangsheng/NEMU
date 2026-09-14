@@ -3,7 +3,7 @@ AM_SRCS := platform/nemu/trm.c \
            platform/nemu/ioe/timer.c \
            platform/nemu/ioe/input.c \
            platform/nemu/ioe/gpu.c \
-           platform/nemu/ioe/audio.c \
+           platform/nemu/ioe/audio.cnemu/src/memory/paddr.c \
            platform/nemu/ioe/disk.c \
            platform/nemu/mpe.c
 
@@ -14,6 +14,7 @@ LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
 NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt -b
+NEMUFLAGS += -f $(IMAGE).elf
 
 MAINARGS_MAX_LEN = 64
 MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here

@@ -21,6 +21,9 @@
 #ifdef CONFIG_WATCHPOINT
 #include "../monitor/sdb/sdb.h"
 #endif
+#ifdef CONFIG_FTRACE
+#include "../monitor/ftrace.h"
+#endif
 #include <locale.h>
 
 /* The assembly code of instructions executed is only output to the screen
@@ -156,6 +159,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc)
     IFDEF(CONFIG_ITRACE, puts(_this->logbuf));
   }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
+  IFDEF(CONFIG_FTRACE, ftrace_step(_this));
 }
 
 // Fetch, Decode, Execute, Refresh PC
