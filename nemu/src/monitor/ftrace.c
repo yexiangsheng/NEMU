@@ -51,7 +51,7 @@ int init_ftrace(const char *elf_file)
     }
 
     // 2. get symbol table
-    if (!fseek(fp, sizeof(Elf32_Half) * 2 + sizeof(Elf32_Word), SEEK_CUR))
+    if (fseek(fp, sizeof(Elf32_Half) * 2 + sizeof(Elf32_Word), SEEK_CUR))
     {
         fprintf(stdout, "Fail to call fseek func");
     }
