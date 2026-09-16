@@ -21,6 +21,8 @@ int init_ftrace(const char *elf_file)
     {
         fprintf(stderr, "fread() failed: %zu\n", ret);
         fprintf(stderr, "fread() failed: %o\n", magic[EI_MAG0]);
+        fprintf(stderr, "fread() failed: %o\n", magic[EI_MAG1]);
+        fprintf(stderr, "fread() failed: %o\n", magic[EI_MAG2]);
 
         // nemu.state = NEMU_ABORT;
         return -1;
