@@ -11,7 +11,7 @@ int init_ftrace(const char *elf_file)
     if (!fp)
     {
         perror("fopen");
-        return EXIT_FAILURE;
+        return -1;
     }
 
     // check magic
@@ -21,7 +21,7 @@ int init_ftrace(const char *elf_file)
     {
         fprintf(stderr, "fread() failed: %zu\n", ret);
         // nemu.state = NEMU_ABORT;
-        exit(EXIT_FAILURE);
+        return -1;
     }
 
     if (magic[EI_MAG0] == ELFMAG0 && magic[EI_MAG1] == ELFMAG1 && magic[EI_MAG2] == ELFMAG2 && magic[EI_MAG3] == ELFMAG3)
