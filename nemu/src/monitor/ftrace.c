@@ -17,13 +17,9 @@ int init_ftrace(const char *elf_file)
     // check magic
     unsigned char magic[EI_NIDENT];
     size_t ret = fread(magic, sizeof(char), 16, fp);
-    if (ret != sizeof(*magic))
+    if (ret != sizeof(char) * 16)
     {
-        fprintf(stderr, "fread() failed: %zu\n", sizeof(*magic));
         fprintf(stderr, "fread() failed: %zu\n", ret);
-        fprintf(stderr, "fread() failed: %o\n", magic[EI_MAG0]);
-        fprintf(stderr, "fread() failed: %o\n", magic[EI_MAG1]);
-        fprintf(stderr, "fread() failed: %o\n", magic[EI_MAG2]);
 
         // nemu.state = NEMU_ABORT;
         // return -1;
