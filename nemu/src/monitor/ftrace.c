@@ -27,11 +27,11 @@ int init_ftrace(const char *elf_file)
 
     if (magic[EI_MAG0] == ELFMAG0 && magic[EI_MAG1] == ELFMAG1 && magic[EI_MAG2] == ELFMAG2 && magic[EI_MAG3] == ELFMAG3)
     {
-        fprintf(stdout, "On Successed, It is ELF format!");
+        fprintf(stdout, "On Successed, It is ELF format!\n");
     }
     else
     {
-        fprintf(stdout, "On Failure, It is not ELF format!");
+        fprintf(stdout, "On Failure, It is not ELF format!\n");
     }
 
     //
