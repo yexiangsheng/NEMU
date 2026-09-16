@@ -16,7 +16,7 @@ int init_ftrace(const char *elf_file)
 
     // check magic
     unsigned char magic[EI_NIDENT];
-    size_t ret = fread(magic, 16, sizeof(char), fp);
+    size_t ret = fread(magic, sizeof(char), 16, fp);
     if (ret != sizeof(*magic))
     {
         fprintf(stderr, "fread() failed: %zu\n", ret);
