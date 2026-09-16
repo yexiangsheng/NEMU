@@ -55,16 +55,16 @@ int init_ftrace(const char *elf_file)
     {
         fprintf(stdout, "Fail to call fseek func");
     }
-    Elf32_Addr *entry = NULL;
-    size_t entry_ret = fread(entry, sizeof(Elf32_Addr), 1, fp);
-    if (ret != sizeof(Elf32_Addr))
-    {
-        fprintf(stderr, "fread() failed: %zu\n", entry_ret);
+    // Elf32_Addr *entry = NULL;
+    // size_t entry_ret = fread(entry, sizeof(Elf32_Addr), 1, fp);
+    // if (ret != sizeof(Elf32_Addr))
+    // {
+    //     fprintf(stderr, "fread() failed: %zu\n", entry_ret);
 
-        // nemu.state = NEMU_ABORT;
-        // return -1;
-    }
-    fprintf(stdout, "ELF entry is: %o", *entry);
+    //     // nemu.state = NEMU_ABORT;
+    //     // return -1;
+    // }
+    // fprintf(stdout, "ELF entry is: %o", *entry);
     // 3. get string table
 
     return 0;
