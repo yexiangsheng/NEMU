@@ -20,6 +20,8 @@ int init_ftrace(const char *elf_file)
     if (ret != sizeof(*magic))
     {
         fprintf(stderr, "fread() failed: %zu\n", ret);
+        fprintf(stderr, "fread() failed: %o\n", magic[EI_MAG0]);
+
         // nemu.state = NEMU_ABORT;
         return -1;
     }
