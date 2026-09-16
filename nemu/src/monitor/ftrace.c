@@ -25,7 +25,7 @@ int init_ftrace(const char *elf_file)
         fprintf(stderr, "fread() failed: %o\n", magic[EI_MAG2]);
 
         // nemu.state = NEMU_ABORT;
-        return -1;
+        // return -1;
     }
 
     if (magic[EI_MAG0] == ELFMAG0 && magic[EI_MAG1] == ELFMAG1 && magic[EI_MAG2] == ELFMAG2 && magic[EI_MAG3] == ELFMAG3)
