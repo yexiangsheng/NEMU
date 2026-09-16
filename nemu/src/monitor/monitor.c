@@ -132,6 +132,7 @@ void init_monitor(int argc, char *argv[])
   /* Open the log file. */
   init_log(log_file);
 
+  /* Initialize function tracing. */
   IFDEF(CONFIG_FTRACE, init_ftrace(elf_file));
 
   /* Initialize memory. */
