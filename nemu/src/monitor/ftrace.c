@@ -7,7 +7,7 @@
 
 int init_ftrace(const char *elf_file)
 {
-    FILE *fp = fopen(elf_file, "w");
+    FILE *fp = fopen(elf_file, "r");
     if (!fp)
     {
         perror("fopen");
@@ -19,6 +19,7 @@ int init_ftrace(const char *elf_file)
     size_t ret = fread(magic, sizeof(char), 16, fp);
     if (ret != sizeof(*magic))
     {
+        fprintf(stderr, "fread() failed: %zu\n", sizeof(*magic));
         fprintf(stderr, "fread() failed: %zu\n", ret);
         fprintf(stderr, "fread() failed: %o\n", magic[EI_MAG0]);
         fprintf(stderr, "fread() failed: %o\n", magic[EI_MAG1]);
