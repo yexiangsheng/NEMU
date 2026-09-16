@@ -3,6 +3,14 @@
 #include <stdlib.h>
 #include <elf.h>
 
+typedef struct
+{
+    const char *addr;
+    const char *name;
+    const char *inst;
+} FuncSym;
+
+FuncSym *funcsym = NULL;
 /* get_symbol_sec = e_entry + e_shoff + e_shnum * e_shstrndx */
 
 int init_ftrace(const char *elf_file)
@@ -14,7 +22,7 @@ int init_ftrace(const char *elf_file)
         return -1;
     }
 
-    // check magic
+    // 1. check magic
     unsigned char magic[EI_NIDENT];
     size_t ret = fread(magic, sizeof(char), 16, fp);
     if (ret != sizeof(char) * 16)
@@ -28,13 +36,24 @@ int init_ftrace(const char *elf_file)
     if (magic[EI_MAG0] == ELFMAG0 && magic[EI_MAG1] == ELFMAG1 && magic[EI_MAG2] == ELFMAG2 && magic[EI_MAG3] == ELFMAG3)
     {
         fprintf(stdout, "On Successed, It is ELF format!\n");
+        if (magic[EI_CLASS] == ELFCLASS32)
+        {
+            fprintf(stdout, "ELF class is: ELF32\n");
+        }
+        else
+        {
+            fprintf(stdout, " Other elf class");
+        }
     }
     else
     {
         fprintf(stdout, "On Failure, It is not ELF format!\n");
     }
 
-    //
+    // 2. get symbol table
+
+    // 3. get string table
+
     return 0;
 }
 
