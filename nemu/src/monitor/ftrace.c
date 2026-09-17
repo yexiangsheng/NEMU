@@ -51,6 +51,7 @@ int init_ftrace(const char *elf_file)
     }
 
     // 2. get symbol table
+    // get entry
     if (!fseek(fp, sizeof(Elf32_Half) * 2 + sizeof(Elf32_Word), SEEK_CUR))
     {
         fprintf(stdout, "Succeed to call fseek func\n");
@@ -61,9 +62,20 @@ int init_ftrace(const char *elf_file)
     {
         fprintf(stderr, "fread() failed: %zu\n", entry_ret);
     }
-
     printf("entry = 0x%08x\n", entry);
 
+    // get_shsti
+    if (!fseek(fp, sizeof(Elf32_Off), SEEK_CUR))
+    {
+        fprintf(stdout, "Succeed to call fseek func\n");
+    }
+    Elf32_Off shoff;
+    size_t shoff_ret = fread(&shoff, sizeof(Elf32_Off), 1, fp);
+    if (shoff_ret != sizeof(Elf32_Off) * 1)
+    {
+        fprintf(stderr, "fread() failed: %zu\n", shoff_ret);
+    }
+    printf("section header start = 0x%08x\n", shoff);
     // Elf32_Addr *entry = NULL;
     // size_t entry_ret = fread(entry, sizeof(Elf32_Addr), 1, fp);
     // if (ret != sizeof(Elf32_Addr))
