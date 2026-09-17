@@ -55,14 +55,13 @@ int init_ftrace(const char *elf_file)
     {
         fprintf(stdout, "Succeed to call fseek func\n");
     }
-    unsigned char get_entry[4];
-    size_t entry_ret = fread(get_entry, sizeof(Elf32_Addr), 1, fp);
+    Elf32_Addr entry;
+    size_t entry_ret = fread(&entry, sizeof(Elf32_Addr), 1, fp);
     if (entry_ret != sizeof(Elf32_Addr) * 1)
     {
         fprintf(stderr, "fread() failed: %zu\n", entry_ret);
     }
 
-    Elf32_Addr entry = (uint32_t)*get_entry;
     printf("entry = 0x%08x\n", entry);
 
     // Elf32_Addr *entry = NULL;
