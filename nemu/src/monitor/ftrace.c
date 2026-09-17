@@ -33,11 +33,6 @@ int init_ftrace(const char *elf_file)
         // return -1;
     }
 
-    printf("%d %d\n", magic[EI_MAG0], ELFMAG0);
-    printf("%d %d\n", magic[EI_MAG1], ELFMAG1);
-    printf("%d %d\n", magic[EI_MAG2], ELFMAG2);
-    printf("%d %d\n", magic[EI_MAG3], ELFMAG3);
-
     if (magic[EI_MAG0] == ELFMAG0 && magic[EI_MAG1] == ELFMAG1 && magic[EI_MAG2] == ELFMAG2 && magic[EI_MAG3] == ELFMAG3)
     {
         fprintf(stdout, "On Successed, It is ELF format!\n");
@@ -56,7 +51,7 @@ int init_ftrace(const char *elf_file)
     }
 
     // 2. get symbol table
-    if (fseek(fp, sizeof(Elf32_Half) * 2 + sizeof(Elf32_Word), SEEK_CUR))
+    if (!fseek(fp, sizeof(Elf32_Half) * 2 + sizeof(Elf32_Word), SEEK_CUR))
     {
         fprintf(stdout, "Fail to call fseek func");
     }
