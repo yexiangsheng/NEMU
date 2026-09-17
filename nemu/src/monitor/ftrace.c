@@ -63,7 +63,7 @@ int init_ftrace(const char *elf_file)
     }
 
     Elf32_Addr entry = (uint32_t)*get_entry;
-    printf("entry = %o", entry);
+    printf("entry = %o\n", entry);
 
     // Elf32_Addr *entry = NULL;
     // size_t entry_ret = fread(entry, sizeof(Elf32_Addr), 1, fp);
