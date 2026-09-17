@@ -51,10 +51,10 @@ int init_ftrace(const char *elf_file)
     }
 
     // 2. get symbol table
-    if (fseek(fp, sizeof(Elf32_Half) * 2 + sizeof(Elf32_Word), SEEK_CUR))
-    {
-        fprintf(stdout, "Fail to call fseek func");
-    }
+    // if (fseek(fp, sizeof(Elf32_Half) * 2 + sizeof(Elf32_Word), SEEK_CUR))
+    // {
+    //     fprintf(stdout, "Fail to call fseek func");
+    // }
     // Elf32_Addr *entry = NULL;
     // size_t entry_ret = fread(entry, sizeof(Elf32_Addr), 1, fp);
     // if (ret != sizeof(Elf32_Addr))
