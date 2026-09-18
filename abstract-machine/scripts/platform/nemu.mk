@@ -13,7 +13,7 @@ LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 # link.ld指定nemu的内存地址的起始与结束
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
-NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log1.txt -b
+NEMUFLAGS += -l $(shell dirname $(IMAGE).elf)/nemu-log.txt -b
 NEMUFLAGS += -f $(IMAGE).elf
 
 MAINARGS_MAX_LEN = 64
@@ -29,7 +29,7 @@ image: image-dep
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin | tee ./build/debug/debug.txt 2>&1
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin 2>&1 | tee ./build/debug/debug1.txt
 
 gdb: insert-arg
 	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
