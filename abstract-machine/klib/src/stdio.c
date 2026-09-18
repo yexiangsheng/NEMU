@@ -33,6 +33,7 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap)
   char *dst = out;
   size_t remain = n;
   const char *p = fmt;
+  int total = 0; // 本应写入的字符总数(C 标准: 截断时也返回完整长度)
 
 #define PUT(c)      \
   do                \
@@ -42,6 +43,7 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap)
       *dst++ = (c); \
       remain--;     \
     }               \
+    total++;        \
   } while (0)
 
   while (*p)
@@ -112,7 +114,7 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap)
   else if (n > 0)
     out[n - 1] = '\0';
 
-  return (int)(dst - out);
+  return total;
 }
 
 // ==================== 转发 ====================
