@@ -29,9 +29,9 @@ image: image-dep
 	@$(OBJCOPY) -S --set-section-flags .bss=alloc,contents -O binary $(IMAGE).elf $(IMAGE).bin
 
 run: insert-arg
-	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
-#     awk '/^mtrace: /' $(dir $(IMAGE).elf)nemu-log.txt > $(dir $(IMAGE).elf)mtrace.txt
-#     awk '/: *call \[|: * ret +\]/' $(dir $(IMAGE).elf)nemu-log.txt > $(dir $(IMAGE).elf)ftrace.txt
+	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin 2>&1 | tee ./build/debug/debug1.txt
+	awk '/^mtrace: /' $(dir $(IMAGE).elf)nemu-log.txt > $(dir $(IMAGE).elf)log/mtrace.txt
+	awk '/: *call \[|: *ret +\[/' $(dir $(IMAGE).elf)nemu-log.txt > $(dir $(IMAGE).elf)log/ftrace.txt
 
 gdb: insert-arg
 	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) gdb ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
