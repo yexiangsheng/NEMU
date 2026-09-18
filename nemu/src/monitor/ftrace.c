@@ -1,190 +1,148 @@
-#include "ftrace.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include <common.h>
 #include <elf.h>
+#include <cpu/decode.h>
+#include "ftrace.h"
 
 typedef struct
 {
-    uint32_t addr;
-    uint32_t inst;
-    const char *name;
+    word_t addr;
+    word_t size;
+    char *name;
 } FuncSym;
-// static FuncSym *funcsym = NULL;
+static FuncSym *funcs = NULL;
+static int nr_func = 0;
 
-static void get_func(size_t seek_size, size_t size, size_t nmenb, void *ret_ptr, FILE *fp)
+// qsort 比较函数: 按函数起始地址升序
+// 注意不能写成 a->addr - b->addr: word_t 是无符号数, 减法可能回绕
+static int cmp_by_addr(const void *a, const void *b)
 {
-    if (!fseek(fp, seek_size, SEEK_CUR))
-    {
-        fprintf(stdout, "Succeed to call fseek func\n");
-    }
-    size_t ret = fread(ret_ptr, size, nmenb, fp);
-    if (ret != size * nmenb)
-    {
-        fprintf(stderr, "fread() failed: %zu\n", ret);
-    }
+    word_t x = ((const FuncSym *)a)->addr, y = ((const FuncSym *)b)->addr;
+    return x < y ? -1 : x > y;
 }
 
-/* get_symbol_sec = e_entry + e_shoff + e_shnum * e_shstrndx */
-
-int init_ftrace(const char *elf_file)
+void init_ftrace(const char *elf_file)
 {
+    if (elf_file == NULL)
+    {
+        Log("ftrace: no ELF file, only addresses will be traced");
+        return;
+    }
+
     FILE *fp = fopen(elf_file, "r");
-    if (!fp)
+    Assert(fp, "ftrace: can not open ELF file '%s'", elf_file);
+
+    Elf32_Ehdr ehdr;
+    Assert(fread(&ehdr, sizeof(ehdr), 1, fp) == 1, "ftrace: read ELF header failed");
+    Assert(ehdr.e_ident[EI_MAG0] == 0x7f && ehdr.e_ident[EI_MAG1] == 'E' &&
+               ehdr.e_ident[EI_MAG2] == 'L' && ehdr.e_ident[EI_MAG3] == 'F' &&
+               ehdr.e_ident[EI_CLASS] == ELFCLASS32,
+           "ftrace: not a 32-bit ELF file");
+
+    // 1. 读整个节头表
+    Elf32_Shdr *shdrs = malloc(ehdr.e_shentsize * ehdr.e_shnum);
+    fseek(fp, ehdr.e_shoff, SEEK_SET);
+    Assert(fread(shdrs, ehdr.e_shentsize, ehdr.e_shnum, fp) == ehdr.e_shnum, "read shdrs failed");
+
+    // 2. 找 .symtab, 并经 sh_link 拿到字符串表
+    Elf32_Shdr *symtab = NULL, *strtab = NULL;
+    // for (int i = 0; i < ehdr.e_shnum; i++)
+    //     if (shdrs[i].sh_type == SHT_SYMTAB)
+    //     {
+    //         symtab = &shdrs[i];
+    //         strtab = &shdrs[symtab->sh_link];
+    //         break;
+    //     }
+    // .symtab .strtab 通常在节头表的末尾, 所以从后往前找
+    for (int i = ehdr.e_shnum; i > 0; i--)
     {
-        perror("fopen");
-        return -1;
-    }
-
-    // 1. check magic
-    unsigned char magic[EI_NIDENT];
-    get_func(0, sizeof(char), 16, magic, fp);
-    // size_t ret = fread(magic, sizeof(char), 16, fp);
-    // if (ret != sizeof(char) * 16)
-    // {
-    //     fprintf(stderr, "fread() failed: %zu\n", ret);
-
-    //     // nemu.state = NEMU_ABORT;
-    //     // return -1;
-    // }
-
-    if (magic[EI_MAG0] == ELFMAG0 && magic[EI_MAG1] == ELFMAG1 && magic[EI_MAG2] == ELFMAG2 && magic[EI_MAG3] == ELFMAG3)
-    {
-        fprintf(stdout, "On Successed, It is ELF format!\n");
-        if (magic[EI_CLASS] == ELFCLASS32)
+        if (shdrs[i - 1].sh_type == SHT_SYMTAB)
         {
-            fprintf(stdout, "ELF class is: ELF32\n");
-        }
-        else
-        {
-            fprintf(stdout, " Other elf class");
+            symtab = &shdrs[i - 1];
+            strtab = &shdrs[symtab->sh_link];
+            break;
         }
     }
-    else
+    Assert(symtab, "ftrace: no .symtab in '%s' (stripped?)", elf_file);
+
+    // 3. 把两个节的内容读进内存
+    Elf32_Sym *syms = malloc(symtab->sh_size);
+    fseek(fp, symtab->sh_offset, SEEK_SET);
+    Assert(fread(syms, symtab->sh_size, 1, fp) == 1, "ftrace: read symtab failed");
+    char *strs = malloc(strtab->sh_size);
+    fseek(fp, strtab->sh_offset, SEEK_SET);
+    Assert(fread(strs, strtab->sh_size, 1, fp) == 1, "ftrace: read strtab failed");
+    fclose(fp);
+
+    // 4. 过滤出函数符号
+    int cnt = symtab->sh_size / symtab->sh_entsize;
+    funcs = malloc(cnt * sizeof(FuncSym));
+    for (int i = 0; i < cnt; i++)
     {
-        fprintf(stdout, "On Failure, It is not ELF format!\n");
+        if (ELF32_ST_TYPE(syms[i].st_info) == STT_FUNC && syms[i].st_value != 0)
+        {
+            funcs[nr_func].addr = syms[i].st_value;
+            funcs[nr_func].size = syms[i].st_size;
+            funcs[nr_func].name = strdup(&strs[syms[i].st_name]);
+            nr_func++;
+        }
     }
+    // 5. 按地址排序, 供"包含查询"使用
+    qsort(funcs, nr_func, sizeof(FuncSym), cmp_by_addr);
+    Log("ftrace: loaded %d function symbols from %s", nr_func, elf_file);
 
-    // 2. get symbol table
-    // get entry
-    Elf32_Addr *entry = NULL;
-    get_func(sizeof(Elf32_Half) * 2 + sizeof(Elf32_Word), sizeof(Elf32_Addr), 1, entry, fp);
-    printf("entry = 0x%08x\n", *entry);
-    // if (!fseek(fp, sizeof(Elf32_Half) * 2 + sizeof(Elf32_Word), SEEK_CUR))
-    // {
-    //     fprintf(stdout, "Succeed to call fseek func\n");
-    // }
-    // size_t entry_ret = fread(&entry, sizeof(Elf32_Addr), 1, fp);
-    // if (entry_ret != sizeof(Elf32_Addr) * 1)
-    // {
-    //     fprintf(stderr, "fread() failed: %zu\n", entry_ret);
-    // }
-
-    // get_shs
-    Elf32_Off *shoff = NULL;
-    get_func(sizeof(Elf32_Off), sizeof(Elf32_Off), 1, shoff, fp);
-    printf("section header start = 0x%08x\n", *shoff);
-    // if (!fseek(fp, sizeof(Elf32_Off), SEEK_CUR))
-    // {
-    //     fprintf(stdout, "Succeed to call fseek func\n");
-    // }
-    // size_t shoff_ret = fread(&shoff, sizeof(Elf32_Off), 1, fp);
-    // if (shoff_ret != sizeof(Elf32_Off) * 1)
-    // {
-    //     fprintf(stderr, "fread() failed: %zu\n", shoff_ret);
-    // }
-
-    // get_sofsh
-    Elf32_Off *shentsize = NULL;
-    get_func(sizeof(Elf32_Word) + sizeof(Elf32_Half) * 3, sizeof(Elf32_Off), 1, shentsize, fp);
-    printf("section header start = 0x%08x\n", *shentsize);
-    // if (!fseek(fp, sizeof(Elf32_Word) + sizeof(Elf32_Half) * 3, SEEK_CUR))
-    // {
-    //     fprintf(stdout, "Succeed to call fseek func\n");
-    // }
-    // size_t shentsize_ret = fread(&shentsize, sizeof(Elf32_Off), 1, fp);
-    // if (shentsize_ret != sizeof(Elf32_Off) * 1)
-    // {
-    //     fprintf(stderr, "fread() failed: %zu\n", shentsize_ret);
-    // }
-
-    // get_nofsh
-    // if (!fseek(fp, sizeof(Elf32_Off), SEEK_CUR))
-    // {
-    //     fprintf(stdout, "Suceed to call fseek func\n");
-    // }
-    Elf32_Off *nofsh = NULL;
-    get_func(0, sizeof(Elf32_Half), 1, nofsh, fp);
-    printf("section header start = 0x%08x\n", *nofsh);
-    // size_t nofsh_ret = fread(&nofsh, sizeof(Elf32_Half), 1, fp);
-    // if (nofsh_ret != sizeof(Elf32_Half) * 1)
-    // {
-    //     fprintf(stderr, "fread() failed: %zu\n", nofsh_ret);
-    // }
-
-    // get_shstrndx
-    Elf32_Off *shstrndx = NULL;
-    get_func(sizeof(Elf32_Off), sizeof(Elf32_Off), 1, shstrndx, fp);
-    printf("section header start = 0x%08x\n", *shstrndx);
-    // if (!fseek(fp, sizeof(Elf32_Off), SEEK_CUR))
-    // {
-    //     fprintf(stdout, "Succeed to call fseek func\n");
-    // }
-    // size_t shstrndx_ret = fread(&shstrndx, sizeof(Elf32_Off), 1, fp);
-    // if (shstrndx_ret != sizeof(Elf32_Off) * 1)
-    // {
-    //     fprintf(stderr, "fread() failed: %zu\n", shstrndx_ret);
-    // }
-    // Elf32_Addr *entry = NULL;
-    // size_t entry_ret = fread(entry, sizeof(Elf32_Addr), 1, fp);
-    // if (ret != sizeof(Elf32_Addr))
-    // {
-    //     fprintf(stderr, "fread() failed: %zu\n", entry_ret);
-
-    //     // nemu.state = NEMU_ABORT;
-    //     // return -1;
-    // }
-    // fprintf(stdout, "ELF entry is: %o", *entry);
-    // 3. get string table
-
-    return 0;
+    // 6. 释放临时缓冲区(funcs 表及其中的 name 全程要用, 保留到进程结束)
+    free(shdrs);
+    free(syms);
+    free(strs);
 }
 
-/* fread EXAMPLES */
-// #include <stdio.h>
-// #include <stdlib.h>
+// 返回包含 addr 的函数符号; 没有精确命中时取起始地址 <= addr 的最近一个
+static const FuncSym *sym_lookup(word_t addr)
+{
+    for (int i = nr_func - 1; i >= 0; i--)
+        if (funcs[i].addr <= addr)
+            return &funcs[i];
+    return NULL;
+}
 
-// #define ARRAY_SIZE(arr) (sizeof(arr) / sizeof((arr)[0]))
+// ***  格式化输出  ***
+static int depth = 0;
 
-// int main(void)
-// {
-//     FILE *fp = fopen("/bin/sh", "rb");
-//     if (!fp)
-//     {
-//         perror("fopen");
-//         return EXIT_FAILURE;
-//     }
+void ftrace_call(vaddr_t pc, vaddr_t target)
+{
+    const FuncSym *f = sym_lookup(target);
+    if (f)
+        log_write(FMT_WORD ": %*scall [%s@" FMT_WORD "]\n", pc, depth * 2, "", f->name, target);
+    else
+        log_write(FMT_WORD ": %*scall [?@" FMT_WORD "]\n", pc, depth * 2, "", target);
+    depth++; // 先按当前深度缩进打印, 再进层
+}
 
-//     unsigned char buffer[4];
-//     size_t ret = fread(buffer, ARRAY_SIZE(buffer), sizeof(*buffer), fp);
-//     if (ret != sizeof(*buffer))
-//     {
-//         fprintf(stderr, "fread() failed: %zu\n", ret);
-//         exit(EXIT_FAILURE);
-//     }
+void ftrace_ret(vaddr_t pc)
+{
+    depth--;                           // 先退层, 再打印
+    const FuncSym *f = sym_lookup(pc); // ret 指令所在的函数 = 正在返回的函数
+    if (f)
+        log_write(FMT_WORD ": %*sret  [%s]\n", pc, depth * 2, "", f->name);
+    else
+        log_write(FMT_WORD ": %*sret  [?]\n", pc, depth * 2, "");
+}
 
-//     printf("ELF magic: %#04x%02x%02x%02x\n", buffer[0], buffer[1],
-//            buffer[2], buffer[3]);
+// ftrace.c —— 在这条指令执行完后被调用, s->dnpc 已就绪
+void ftrace_step(Decode *s)
+{
+    uint32_t i = s->isa.inst;
+    int opcode = i & 0x7f;
+    int rd = BITS(i, 11, 7);
+    int rs1 = BITS(i, 19, 15);
 
-//     ret = fread(buffer, 1, 1, fp);
-//     if (ret != 1)
-//     {
-//         fprintf(stderr, "fread() failed: %zu\n", ret);
-//         exit(EXIT_FAILURE);
-//     }
-
-//     printf("Class: %#04x\n", buffer[0]);
-
-//     fclose(fp);
-
-//     exit(EXIT_SUCCESS);
-// }
+    if (opcode == 0x6f && rd == 1) // jal ra
+        ftrace_call(s->pc, s->dnpc);
+    else if (opcode == 0x67)
+    { // jalr
+        if (rd == 0 && rs1 == 1)
+            ftrace_ret(s->pc); // ret
+        else if (rd == 1)
+            ftrace_call(s->pc, s->dnpc); // 间接调用
+    }
+}

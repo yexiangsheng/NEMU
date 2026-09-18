@@ -18,7 +18,8 @@
 
 #include <string.h>
 
-// macro stringizing
+// 1. 字符串化 # 与“两层展开”技巧
+//  macro stringizing
 #define str_temp(x) #x
 #define str(x) str_temp(x)
 
@@ -28,15 +29,18 @@
 // calculate the length of an array
 #define ARRLEN(arr) (int)(sizeof(arr) / sizeof(arr[0]))
 
-// macro concatenation
+// 2. 拼接 ## 同样需要两层
+//  macro concatenation
 #define concat_temp(x, y) x##y
 #define concat(x, y) concat_temp(x, y)
 #define concat3(x, y, z) concat(concat(x, y), z)
 #define concat4(x, y, z, w) concat3(concat(x, y), z, w)
 #define concat5(x, y, z, v, w) concat4(concat(x, y), z, v, w)
 
-// macro testing
-// See https://stackoverflow.com/questions/26099745/test-if-preprocessor-symbol-is-defined-inside-macro
+/* nb */
+// 4. MUX 系列：在表达式里做“条件编译”
+//  macro testing
+//  See https://stackoverflow.com/questions/26099745/test-if-preprocessor-symbol-is-defined-inside-macro
 #define CHOOSE2nd(a, b, ...) b
 #define MUX_WITH_COMMA(contain_comma, a, b) CHOOSE2nd(contain_comma a, b)
 #define MUX_MACRO_PROPERTY(p, macro, a, b) MUX_WITH_COMMA(concat(p, macro), a, b)
@@ -81,8 +85,10 @@
 // NOTE1: `c` should be defined as a list like:
 //   f(a0) f(a1) f(a2) ...
 // NOTE2: each element in the container can be a tuple
+// 6. MAP:X-macro 模式
 #define MAP(c, f) c(f)
 
+// 7. 位操作：Verilog 风格
 #define BITMASK(bits) ((1ull << (bits)) - 1)
 #define BITS(x, hi, lo) (((x) >> (lo)) & BITMASK((hi) - (lo) + 1)) // similar to x[hi:lo] in verilog
 #define SEXT(x, len) ({ struct { int64_t n : len; } __x = { .n = x }; (uint64_t)__x.n; })
