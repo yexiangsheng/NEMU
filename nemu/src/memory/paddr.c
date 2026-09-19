@@ -68,12 +68,14 @@ static void mtrace_log(const char *op, paddr_t addr, int len, word_t data)
 
 word_t paddr_read(paddr_t addr, int len)
 {
+  // In physical memory -> pmem_read
   if (likely(in_pmem(addr)))
   {
     word_t ret = pmem_read(addr, len);
     IFDEF(CONFIG_MTRACE, mtrace_log("read", addr, len, ret));
     return ret;
   }
+  // In IO memory -> mmio_read
   IFDEF(CONFIG_DEVICE, return mmio_read(addr, len));
   out_of_bound(addr);
   return 0;
