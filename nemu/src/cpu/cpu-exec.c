@@ -151,7 +151,6 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc)
   }
 #endif
 #ifdef CONFIG_WATCHPOINT
-  /* TODO: check watchpoints here, e.g. scan_watchpoint(); */
   watchpoint_check();
 #endif
   if (g_print_step)
