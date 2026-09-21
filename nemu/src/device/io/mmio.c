@@ -21,6 +21,7 @@
 static IOMap maps[NR_MAP] = {};
 static int nr_map = 0;
 
+// 遍历所有maps，获取并返回
 static IOMap *fetch_mmio_map(paddr_t addr)
 {
   int mapid = find_mapid_by_addr(maps, nr_map, addr);
@@ -36,6 +37,7 @@ static void report_mmio_overlap(const char *name1, paddr_t l1, paddr_t r1,
 }
 
 /* device interface */
+// 添加map到注册表中
 void add_mmio_map(const char *name, paddr_t addr, void *space, uint32_t len, io_callback_t callback)
 {
   assert(nr_map < NR_MAP);
@@ -62,6 +64,7 @@ void add_mmio_map(const char *name, paddr_t addr, void *space, uint32_t len, io_
 }
 
 /* bus interface */
+// 用户访问device时候不用知道设备空间·
 word_t mmio_read(paddr_t addr, int len)
 {
   return map_read(addr, len, fetch_mmio_map(addr));
