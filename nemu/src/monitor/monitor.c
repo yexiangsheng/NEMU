@@ -46,7 +46,7 @@ void sdb_set_batch_mode();
 static char *log_file = NULL;
 static char *elf_file = NULL;
 static char *diff_so_file = NULL;
-static char *img_file = NULL;
+static char *img_file = "/home/yxs/Code/NJU_pa/pa0/ics2024/am-kernels/tests/am-tests/build/amtest-riscv32-nemu.bin";
 static int difftest_port = 1234;
 
 static long load_img()
