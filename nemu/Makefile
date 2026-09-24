@@ -98,10 +98,8 @@ include $(FILELIST_MK)
 # filter-out 从 SRCS-y 中剔除黑名单里的文件, 得到最终参与编译的源文件集合.
 #------------------------------------------------------------------------------
 DIRS-BLACKLIST-y += $(DIRS-BLACKLIST)
-DIRS-BLACKLIST-y += $(NEMU_HOME)/src/monitor/sdb
 SRCS-BLACKLIST-y += $(if $(DIRS-BLACKLIST-y), $(shell find -L $(DIRS-BLACKLIST-y) -name "*.c"),)
 SRCS-BLACKLIST-y += $(SRCS-BLACKLIST)
-SRCS-BLACKLIST-y += $(NEMU_NOME)/src/monitor/sdb/watchpoint.c
 SRCS-y += $(if $(DIRS-y), $(shell find -L $(DIRS-y) -name "*.c"),)
 SRCS = $(filter-out $(SRCS-BLACKLIST-y),$(SRCS-y))
 
