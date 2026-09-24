@@ -24,7 +24,7 @@ static int nr_map = 0;
 // 遍历所有maps，获取并返回
 static IOMap *fetch_mmio_map(paddr_t addr)
 {
-  // printf("Addr is " FMT_PADDR "\n", addr);
+  printf("Addr is " FMT_PADDR "\n", addr);
   int mapid = find_mapid_by_addr(maps, nr_map, addr);
   return (mapid == -1 ? NULL : &maps[mapid]);
 }
