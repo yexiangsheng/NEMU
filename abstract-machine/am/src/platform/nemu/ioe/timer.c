@@ -9,7 +9,7 @@ void __am_timer_uptime(AM_TIMER_UPTIME_T *uptime)
 {
   uint32_t hi = inl(RTC_ADDR + 4); // 读高32位, 同时触发NEMU刷新整个64位时间
   uint32_t lo = inl(RTC_ADDR);     // 读低32位, 与hi来自同一次刷新
-  uptime->us = ((uint64_t)hi << 20) | lo;
+  uptime->us = ((uint64_t)hi << 32) | lo;
 }
 
 void __am_timer_rtc(AM_TIMER_RTC_T *rtc)
