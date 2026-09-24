@@ -156,7 +156,9 @@ static int cmd_info(char *args)
   }
   if (strcmp(arg, "w") == 0)
   {
+#ifdef CONFIG_WATCHPOINT
     info_watchpoints();
+#endif
     return 0;
   }
   Log("Unknown info subcmd '%s'\n", arg);
@@ -241,7 +243,9 @@ static int cmd_w_expr(char *args)
   char *arg = strtok(NULL, " ");
   if (arg != NULL)
   {
+#ifdef CONFIG_WATCHPOINT
     get_new_wp(arg);
+#endif
     // Log("Already set watchpoint in %");
   }
   else
@@ -257,7 +261,10 @@ static int cmd_delete(char *args)
   int res = atoi(arg);
   if (arg != NULL)
   {
+#ifdef CONFIG_WATCHPOINT
     delete_wp(res);
+#endif
+    res = res + 1 - 1;
   }
   else
   {
@@ -271,7 +278,9 @@ static int cmd_breakpoint(char *args)
   char *arg = strtok(NULL, " ");
   if (arg != NULL)
   {
+#ifdef CONFIG_WATCHPOINT
     set_breakpoint(arg);
+#endif
   }
   else
   {
