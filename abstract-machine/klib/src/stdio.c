@@ -96,6 +96,12 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap)
       }
       break;
     }
+    case 'c':
+    {
+      int val = va_arg(ap, int);
+      PUT(val);
+      break;
+    }
 
     default:
       // 不支持的格式符，原样输出
