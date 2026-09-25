@@ -15,6 +15,7 @@
 
 #include <device/map.h>
 #include <memory/paddr.h>
+#include <isa.h>
 
 #define NR_MAP 16
 
@@ -64,14 +65,27 @@ void add_mmio_map(const char *name, paddr_t addr, void *space, uint32_t len, io_
   nr_map++;
 }
 
+#ifdef CONFIG_DTRACE
+static void dtrace_log(const char *op, paddr_t addr, int len, word_t data)
+{
+  if (addr >= CONFIG_DTRACE_START && addr <= CONFIG_DTRACE_END)
+  {
+    log_write("dtrace: %s addr=" FMT_PADDR " len=%d data=" FMT_WORD " pc=" FMT_WORD "\n",
+              op, addr, len, data, cpu.pc);
+  }
+}
+#endif
+
 /* bus interface */
 // 用户访问device时候不用知道设备空间·
 word_t mmio_read(paddr_t addr, int len)
 {
-  return map_read(addr, len, fetch_mmio_map(addr));
+  word_t ret = map_read(addr, len, fetch_mmio_map(addr));
+  return ret;
 }
 
 void mmio_write(paddr_t addr, int len, word_t data)
 {
+  IFDEF(CONFIG_MTRACE, dtrace_log("write", addr, len, data));
   map_write(addr, len, data, fetch_mmio_map(addr));
 }

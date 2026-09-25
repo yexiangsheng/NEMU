@@ -172,7 +172,7 @@ config DTRACE
   bool "Enable device trace"
   default n
 
-config DTRACE_STRAT
+config DTRACE_START
   depends on DTRACE
   hex "Start address of the memory range of trace"
   default 0xa0000000
