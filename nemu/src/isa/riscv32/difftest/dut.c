@@ -19,14 +19,23 @@
 
 bool isa_difftest_checkregs(CPU_state *ref_r, vaddr_t pc)
 {
+  int counter = 0;
   for (int i = 0; i < MUXDEF(CONFIG_RVE, 16, 32); i++)
   {
-    // printf("reg =\t0x%08x and 0x%08x \n", gpr(i), ref_r->gpr[check_reg_idx(i)]);
-    // printf("pc =\t%x and %x\n", cpu.pc, ref_r->pc);
     if (gpr(i) == ref_r->gpr[check_reg_idx(i)] && cpu.pc == ref_r->pc)
     {
-      return true;
+      counter++;
     }
+    else
+    {
+      printf("reg =\t0x%08x and 0x%08x \n", gpr(i), ref_r->gpr[check_reg_idx(i)]);
+      printf("pc =\t%x and %x\n", cpu.pc, ref_r->pc);
+      return false;
+    }
+  }
+  if (counter == 32)
+  {
+    return true;
   }
 
   return false;
