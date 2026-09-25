@@ -167,6 +167,21 @@ config MTRACE_END
   hex "End address of the memory range to trace"
   default 0x88000000
 
+config DTRACE
+  depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
+  bool "Enable device trace"
+  default n
+
+config DTRACE_STRAT
+  depends on DTRACE
+  hex "Start address of the memory range of trace"
+  default 0xa0000000
+
+config DTRACE_END
+  depends on DTRACE
+  hex "End adress of the memory range of trace"
+  default 0xa0800000
+
 config FTRACE
   depends on TRACE && TARGET_NATIVE_ELF && ENGINE_INTERPRETER
   bool "Enable function tracer"
