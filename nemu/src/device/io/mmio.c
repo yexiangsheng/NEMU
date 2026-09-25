@@ -66,12 +66,12 @@ void add_mmio_map(const char *name, paddr_t addr, void *space, uint32_t len, io_
 }
 
 #ifdef CONFIG_DTRACE
-static void dtrace_log(const char *op, paddr_t addr, int len, word_t data)
+static void dtrace_log(const char *op, const char *name, paddr_t addr, int len, word_t data)
 {
   if (addr >= CONFIG_DTRACE_START && addr <= CONFIG_DTRACE_END)
   {
-    log_write("dtrace: %s addr=" FMT_PADDR " len=%d data=" FMT_WORD " pc=" FMT_WORD "\n",
-              op, addr, len, data, cpu.pc);
+    log_write("dtrace: %s map_name= %s addr=" FMT_PADDR " len=%d data=" FMT_WORD " pc=" FMT_WORD "\n",
+              op, name, addr, len, data, cpu.pc);
   }
 }
 #endif
@@ -80,12 +80,15 @@ static void dtrace_log(const char *op, paddr_t addr, int len, word_t data)
 // 用户访问device时候不用知道设备空间·
 word_t mmio_read(paddr_t addr, int len)
 {
-  word_t ret = map_read(addr, len, fetch_mmio_map(addr));
+  IOMap *map = fetch_mmio_map(addr);
+  word_t ret = map_read(addr, len, map);
+  IFDEF(CONFIG_MTRACE, dtrace_log("read", map->name, addr, len, ret));
   return ret;
 }
 
 void mmio_write(paddr_t addr, int len, word_t data)
 {
-  IFDEF(CONFIG_MTRACE, dtrace_log("write", addr, len, data));
-  map_write(addr, len, data, fetch_mmio_map(addr));
+  IOMap *map = fetch_mmio_map(addr);
+  map_write(addr, len, data, map);
+  IFDEF(CONFIG_MTRACE, dtrace_log("write", map->name, addr, len, data));
 }
