@@ -1,8 +1,6 @@
 #include <am.h>
 #include <nemu.h>
 
-#define KEYDOWN_MASK 0x8000
-
 enum
 {
   down = 1,
@@ -16,13 +14,6 @@ void __am_input_keybrd(AM_INPUT_KEYBRD_T *kbd)
 {
   uint32_t input = inl(KBD_ADDR);
 
-  kbd->keydown = input & KEYDOWN_MASK;
-  if (kbd->keydown == down)
-  {
-    kbd->keycode = input & KEYCODE_MASK;
-  }
-  else
-  {
-    kbd->keycode = up;
-  }
+  kbd->keydown = ((input & KEYDOWN_MASK) != 0) ? down : up;
+  kbd->keycode = input & KEYCODE_MASK;
 }
