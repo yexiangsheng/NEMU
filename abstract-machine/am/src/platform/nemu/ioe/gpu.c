@@ -32,6 +32,18 @@ void __am_gpu_config(AM_GPU_CONFIG_T *cfg)
 
 void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl)
 {
+  uint32_t screen_w = intl(SCREEN_SIZE_ADDR) & SCREEN_W_MASK >> 16;
+  uint32_t begin_x = ctl->x;
+  uint32_t begin_y = ctl->y * screen_w;
+  for (int x = 0; x < ctl->w; x++)
+  {
+    for (int y = 0; ctl->h; y++)
+    {
+      outl(FB_ADDR + begin_y + begin_x, ctl->pixels);
+      begin_x++;
+    }
+    begin_y++;
+  }
   if (ctl->sync)
   {
     outl(SYNC_ADDR, 1);
