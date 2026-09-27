@@ -3,38 +3,60 @@
 
 #define SCREEN_SIZE_ADDR (VGACTL_ADDR)
 #define SYNC_ADDR (VGACTL_ADDR + 4)
-#define SCREEN_MASK 0xffff
+#define SCREEN_MASK 0x00ff
 
 void __am_gpu_init()
 {
+  int i;
+
+  uint32_t screen = inl(SCREEN_SIZE_ADDR);
+  uint32_t screen_w = screen >> 16;
+  uint32_t screen_h = screen & SCREEN_MASK;
+  int w = screen_w; // TODO: get the correct width
+  int h = screen_h; // TODO: get the correct height
+  uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
+  for (i = 0; i < w * h; i++)
+    fb[i] = i;
+  outl(SYNC_ADDR, 1);
 }
 
 void __am_gpu_config(AM_GPU_CONFIG_T *cfg)
 {
   uint32_t screen = inl(SCREEN_SIZE_ADDR);
+  uint32_t screen_w = screen >> 16;
+  uint32_t screen_h = screen & SCREEN_MASK;
   *cfg = (AM_GPU_CONFIG_T){
-      .present = true, .has_accel = false, .vmemsz = 0, .width = screen >> 16, .height = screen & SCREEN_MASK};
+      .present = true, .has_accel = false, .width = screen_w, .height = screen_h, .vmemsz = 0};
 }
 
 void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl)
 {
-  uint32_t screen = inl(SCREEN_SIZE_ADDR);
-  int screen_w = screen >> 16;
-  int screen_h = screen & SCREEN_MASK;
-  uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
-  uint32_t *pixels = ctl->pixels;
-
-  for (int y = 0; y < ctl->h; y++)
+  int x = ctl->x, y = ctl->y, w = ctl->w, h = ctl->h;
+  if (!ctl->sync && (w == 0 || h == 0))
   {
-    int py = ctl->y + y;
-    if (py >= screen_h)
-      break; // 超出屏幕下边界，剩余的行整行跳过
-    for (int x = 0; x < ctl->w; x++)
+    return;
+  }
+  uint32_t *pixels = ctl->pixels;
+  uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
+  uint32_t screen_w = inl(VGACTL_ADDR) >> 16;
+  // uint32_t screen_w = inl(SCREEN_SIZE_ADDR) >> 16;
+  // uint32_t begin_x = ctl->x;
+  // uint32_t begin_y = ctl->y * screen_w;
+  /*for (int x = 0; x < ctl->w; x++)
+  {
+    for (int y = 0; y < ctl->h; y++)
     {
-      int px = ctl->x + x;
-      if (px >= screen_w)
-        break; // 本行超出右边界的像素跳过
-      fb[py * screen_w + px] = pixels[y * ctl->w + x];
+      outl(FB_ADDR + begin_y + begin_x, ctl->pixels[]);
+      begin_x++;
+    }
+    begin_y++;
+  }*/
+
+  for (int i = y; i < y + h; i++)
+  {
+    for (int j = x; j < x + w; j++)
+    {
+      fb[screen_w * i + j] = pixels[w * (i - y) + (j - x)];
     }
   }
   if (ctl->sync)
