@@ -3,7 +3,7 @@
 
 #define SCREEN_SIZE_ADDR (VGACTL_ADDR)
 #define SYNC_ADDR (VGACTL_ADDR + 4)
-#define SCREEN_MASK 0x00ff
+#define SCREEN_MASK 0xffff
 
 void __am_gpu_init()
 {
