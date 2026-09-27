@@ -31,61 +31,44 @@ enum
 
 static uint8_t *sbuf = NULL;
 static uint32_t *audio_base = NULL;
-
-// int freq = inl(CONFIG_AUDIO_CTL_MMIO);
-// SDL_AudioFormat format;
-// Uint8 channels = inl(CONFIG_AUDIO_CTL_MMIO + 4);
-// Uint8 silence = 0;
-// Uint16 samples = inl(CONFIG_AUDIO_CTL_MMIO + 8);
-// Uint16 padding = NULL;
-// Uint32 size = CONFIG_SB_SIZE;
-// void *userdata;
-
-// void audio_callback(,void * userdata,Uint8* stream, int len)
-//{
-//}
-// SDL_AudioCallback callback = ;
-// SDL_AudioSpec obstained = {
-// freq,
-// format,
-// channels,
-// silence,
-// samples,
-// padding,
-// size,
-// callback,
-// userdata};
+static uint32_t sbuf_r = 0;
 
 void audio_callback(void *userdata, Uint8 *stream, int len)
 {
   assert(len >= 0 && len <= CONFIG_SB_SIZE);
-  int read_buf = mmio_read(CONFIG_AUDIO_CTL_MMIO + 4 * reg_count, 4);
-  if (len <= read_buf)
+  uint32_t count = audio_base[reg_count];
+  uint32_t n = len < count ? len : count;
+  uint32_t tail = CONFIG_SB_SIZE - sbuf_r;
+  uint32_t first = n < tail ? n : tail;
+  memcpy(stream, sbuf + sbuf_r, first);
+  memcpy(stream + first, sbuf, n - first);
+  sbuf_r = (sbuf_r + n) % CONFIG_SB_SIZE;
+  if (n < (uint32_t)len)
   {
-    mmio_read(CONFIG_SB_ADDR, len);
+    memset(stream + n, 0, len - n);
   }
-  else
-  {
-    mmio_read(CONFIG_SB_ADDR, read_buf);
-    // Uint8 *begin = stream + read_buf;
-    //  memset(begin, 0, read_buf - len);
-  }
+  audio_base[reg_count] = count - n;
 }
 
 static void audio_io_handler(uint32_t offset, int len, bool is_write)
 {
-  SDL_AudioSpec s = {};
-  s.freq = mmio_read(CONFIG_AUDIO_CTL_MMIO + 4 * reg_freq, 4);
-  s.format = AUDIO_S16SYS; // 假设系统中音频数据的格式总是使用16位有符号数来表示
-  s.channels = mmio_read(CONFIG_AUDIO_CTL_MMIO + 4 * reg_channels, 4);
-  s.silence = 0;
-  s.samples = mmio_read(CONFIG_AUDIO_CTL_MMIO + 4 * reg_samples, 4);
-  s.padding = 0;
-  s.userdata = NULL; // 不使用
-  s.callback = audio_callback;
-  SDL_InitSubSystem(SDL_INIT_AUDIO);
-  SDL_OpenAudio(&s, NULL);
-  SDL_PauseAudio(0);
+  if (is_write && offset == 4 * reg_init && audio_base[reg_init])
+  {
+    SDL_AudioSpec s = {};
+    s.freq = audio_base[reg_freq];
+    s.format = AUDIO_S16SYS; // 假设系统中音频数据的格式总是使用16位有符号数来表示
+    s.channels = audio_base[reg_channels];
+    s.samples = audio_base[reg_samples];
+    s.userdata = NULL; // 不使用
+    s.callback = audio_callback;
+    SDL_InitSubSystem(SDL_INIT_AUDIO);
+    SDL_OpenAudio(&s, NULL);
+    SDL_PauseAudio(0);
+  }
+  if (!is_write && offset == 4 * reg_count)
+  {
+    audio_base[reg_count] = CONFIG_SB_SIZE;
+  }
 }
 
 void init_audio()
