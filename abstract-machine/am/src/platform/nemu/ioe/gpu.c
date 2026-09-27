@@ -7,15 +7,11 @@
 
 void __am_gpu_init()
 {
-  int i;
-
   uint32_t screen = inl(SCREEN_SIZE_ADDR);
-  uint32_t screen_w = screen >> 16;
-  uint32_t screen_h = screen & SCREEN_MASK;
-  int w = screen_w; // TODO: get the correct width
-  int h = screen_h; // TODO: get the correct height
+  int w = screen >> 16, h = screen & SCREEN_MASK;
+
   uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
-  for (i = 0; i < w * h; i++)
+  for (int i = 0; i < w * h; i++)
     fb[i] = i;
   outl(SYNC_ADDR, 1);
 }
