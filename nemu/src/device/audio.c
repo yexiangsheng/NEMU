@@ -1,23 +1,25 @@
 /***************************************************************************************
-* Copyright (c) 2014-2024 Zihao Yu, Nanjing University
-*
-* NEMU is licensed under Mulan PSL v2.
-* You can use this software according to the terms and conditions of the Mulan PSL v2.
-* You may obtain a copy of Mulan PSL v2 at:
-*          http://license.coscl.org.cn/MulanPSL2
-*
-* THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-* EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-* MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-*
-* See the Mulan PSL v2 for more details.
-***************************************************************************************/
+ * Copyright (c) 2014-2024 Zihao Yu, Nanjing University
+ *
+ * NEMU is licensed under Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *          http://license.coscl.org.cn/MulanPSL2
+ *
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
+ * EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
+ * MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
+ *
+ * See the Mulan PSL v2 for more details.
+ ***************************************************************************************/
 
 #include <common.h>
 #include <device/map.h>
 #include <SDL2/SDL.h>
+#include <device/mmio.h>
 
-enum {
+enum
+{
   reg_freq,
   reg_channels,
   reg_samples,
@@ -30,14 +32,68 @@ enum {
 static uint8_t *sbuf = NULL;
 static uint32_t *audio_base = NULL;
 
-static void audio_io_handler(uint32_t offset, int len, bool is_write) {
+// int freq = inl(CONFIG_AUDIO_CTL_MMIO);
+// SDL_AudioFormat format;
+// Uint8 channels = inl(CONFIG_AUDIO_CTL_MMIO + 4);
+// Uint8 silence = 0;
+// Uint16 samples = inl(CONFIG_AUDIO_CTL_MMIO + 8);
+// Uint16 padding = NULL;
+// Uint32 size = CONFIG_SB_SIZE;
+// void *userdata;
+
+// void audio_callback(,void * userdata,Uint8* stream, int len)
+//{
+//}
+// SDL_AudioCallback callback = ;
+// SDL_AudioSpec obstained = {
+// freq,
+// format,
+// channels,
+// silence,
+// samples,
+// padding,
+// size,
+// callback,
+// userdata};
+
+void audio_callback(void *userdata, Uint8 *stream, int len)
+{
+  assert(len >= 0 && len <= CONFIG_SB_SIZE);
+  int read_buf = mmio_read(CONFIG_AUDIO_CTL_MMIO + 4 * reg_count, 4);
+  if (len <= read_buf)
+  {
+    mmio_read(CONFIG_SB_ADDR, len);
+  }
+  else
+  {
+    mmio_read(CONFIG_SB_ADDR, read_buf);
+    // Uint8 *begin = stream + read_buf;
+    //  memset(begin, 0, read_buf - len);
+  }
 }
 
-void init_audio() {
+static void audio_io_handler(uint32_t offset, int len, bool is_write)
+{
+  SDL_AudioSpec s = {};
+  s.freq = mmio_read(CONFIG_AUDIO_CTL_MMIO + 4 * reg_freq, 4);
+  s.format = AUDIO_S16SYS; // 假设系统中音频数据的格式总是使用16位有符号数来表示
+  s.channels = mmio_read(CONFIG_AUDIO_CTL_MMIO + 4 * reg_channels, 4);
+  s.silence = 0;
+  s.samples = mmio_read(CONFIG_AUDIO_CTL_MMIO + 4 * reg_samples, 4);
+  s.padding = 0;
+  s.userdata = NULL; // 不使用
+  s.callback = audio_callback;
+  SDL_InitSubSystem(SDL_INIT_AUDIO);
+  SDL_OpenAudio(&s, NULL);
+  SDL_PauseAudio(0);
+}
+
+void init_audio()
+{
   uint32_t space_size = sizeof(uint32_t) * nr_reg;
   audio_base = (uint32_t *)new_space(space_size);
 #ifdef CONFIG_HAS_PORT_IO
-  add_pio_map ("audio", CONFIG_AUDIO_CTL_PORT, audio_base, space_size, audio_io_handler);
+  add_pio_map("audio", CONFIG_AUDIO_CTL_PORT, audio_base, space_size, audio_io_handler);
 #else
   add_mmio_map("audio", CONFIG_AUDIO_CTL_MMIO, audio_base, space_size, audio_io_handler);
 #endif
