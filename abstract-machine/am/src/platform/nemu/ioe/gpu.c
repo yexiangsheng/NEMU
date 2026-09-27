@@ -7,22 +7,13 @@
 
 void __am_gpu_init()
 {
-  uint32_t screen = inl(SCREEN_SIZE_ADDR);
-  int w = screen >> 16;
-  int h = screen & SCREEN_MASK;
-
-  uint32_t *fb = (uint32_t *)(uintptr_t)FB_ADDR;
-  for (int i = 0; i < w * h; i++)
-    fb[i] = i;
-  outl(SYNC_ADDR, 1);
 }
 
 void __am_gpu_config(AM_GPU_CONFIG_T *cfg)
 {
   uint32_t screen = inl(SCREEN_SIZE_ADDR);
   *cfg = (AM_GPU_CONFIG_T){
-      .present = true, .has_accel = false, .vmemsz = 0,
-      .width = screen >> 16, .height = screen & SCREEN_MASK};
+      .present = true, .has_accel = false, .vmemsz = 0, .width = screen >> 16, .height = screen & SCREEN_MASK};
 }
 
 void __am_gpu_fbdraw(AM_GPU_FBDRAW_T *ctl)
