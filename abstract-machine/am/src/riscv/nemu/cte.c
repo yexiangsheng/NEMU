@@ -48,6 +48,7 @@ void yield()
 #else
   asm volatile("li a7, -1; ecall");
 #endif
+  word_t entry = isa_raise_intr(EVENT_YIELD, 0x00000000);
 }
 
 bool ienabled()
