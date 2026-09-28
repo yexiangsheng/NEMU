@@ -19,7 +19,7 @@
 
 // return two value by reference
 // Fetch
-static inline uint32_t inst_fetch(vaddr_t *pc, int len)
+static uint32_t inst_fetch(vaddr_t *pc, int len)
 {
   uint32_t inst = vaddr_ifetch(*pc, len);
   (*pc) += len;
