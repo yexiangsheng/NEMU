@@ -11,6 +11,18 @@ Context *__am_irq_handle(Context *c)
     Event ev = {0};
     switch (c->mcause)
     {
+    case 11: // ecall from M-mode
+      c->mepc += 4; // skip the ecall instruction before mret
+      if (c->GPR1 == (uintptr_t)-1)
+      {
+        ev.event = EVENT_YIELD;
+      }
+      else
+      {
+        ev.event = EVENT_SYSCALL;
+        ev.cause = c->GPR1; // syscall number
+      }
+      break;
     default:
       ev.event = EVENT_ERROR;
       break;
@@ -48,7 +60,6 @@ void yield()
 #else
   asm volatile("li a7, -1; ecall");
 #endif
-  word_t entry = isa_raise_intr(EVENT_YIELD, 0x00000000);
 }
 
 bool ienabled()

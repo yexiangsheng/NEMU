@@ -17,15 +17,14 @@
 
 word_t isa_raise_intr(word_t NO, vaddr_t epc)
 {
-  /* TODO: Trigger an interrupt/exception with ``NO''.
+  /* Trigger an interrupt/exception with ``NO''.
    * Then return the address of the interrupt/exception vector.
    */
-  if (NO == 1)
-  {
-    return epc;
-  }
+  cpu.csr.mepc = epc;     // pc of the instruction that triggered the exception
+  cpu.csr.mcause = NO;    // record the exception number
+  cpu.pc = cpu.csr.mtvec; // jump to the trap entry
 
-  return 0;
+  return cpu.pc;
 }
 
 word_t isa_query_intr()

@@ -297,7 +297,7 @@ void sdb_set_batch_mode()
 // Recognize and match commands
 void sdb_mainloop()
 {
-  sdb_set_batch_mode();
+  // sdb_set_batch_mode();
   if (is_batch_mode)
   {
     cmd_c(NULL);
