@@ -1,7 +1,6 @@
 #include <riscv/riscv.h>
 #include <am.h>
 #include <klib.h>
-#define CONFIG_ETRACE 0
 
 static Context *(*user_handler)(Event, Context *) = NULL;
 
