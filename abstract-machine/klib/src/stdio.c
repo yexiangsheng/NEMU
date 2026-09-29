@@ -102,7 +102,23 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap)
       PUT(val);
       break;
     }
-
+    case 'x':
+    {
+      unsigned int val = va_arg(ap, unsigned int);
+      char buf[9]; // 32 位最多 8 个十六进制位
+      int len = 0;
+      if (val == 0)
+        buf[len++] = '0';
+      while (val)
+      {
+        int digit = val & 0xf;
+        buf[len++] = digit < 10 ? '0' + digit : 'a' + digit - 10;
+        val >>= 4;
+      }
+      for (int i = len - 1; i >= 0; i--) // 低位先算出来的,倒着输出
+        PUT(buf[i]);
+      break;
+    }
     default:
       // 不支持的格式符，原样输出
       PUT('%');
