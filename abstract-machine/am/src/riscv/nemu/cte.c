@@ -14,7 +14,7 @@ Context *__am_irq_handle(Context *c)
 {
   if (user_handler)
   {
-#if CONFIG_ETRACE
+#ifdef CONFIG_ETRACE
     printf_context(c);
 #endif
     Event ev = {0};
