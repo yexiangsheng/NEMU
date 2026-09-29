@@ -6,7 +6,7 @@ static Context *(*user_handler)(Event, Context *) = NULL;
 
 void printf_context(Context *c)
 {
-  printf("CSR register: mcause = %d, mstatus = %d, mepc = %d\n",
+  printf("CSR register: mcause = 0x%08x, mstatus = 0x%08x, mepc = 0x%08x\n",
          c->mcause, c->mstatus, c->mepc);
 }
 
@@ -15,8 +15,8 @@ Context *__am_irq_handle(Context *c)
   if (user_handler)
   {
 #ifdef CONFIG_ETRACE
-#endif
     printf_context(c);
+#endif
     Event ev = {0};
     switch (c->mcause)
     {
