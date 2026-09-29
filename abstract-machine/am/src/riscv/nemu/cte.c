@@ -6,7 +6,7 @@ static Context *(*user_handler)(Event, Context *) = NULL;
 
 void printf_context(Context *c)
 {
-  printf("CSR register: mcause = 0x%08x, mstatus = 0x%08x, mepc = 0x%08x\n",
+  printf("CSR register: mcause = 0x%x, mstatus = 0x%x, mepc = 0x%x\n",
          c->mcause, c->mstatus, c->mepc);
 }
 
