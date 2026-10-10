@@ -24,15 +24,20 @@ typedef struct Context Context;
 // An event of type @event, caused by @cause of pointer @ref
 typedef struct
 {
+  // exception/interrupt type:
+  // 1. trap
+  // 2. fault
+  // 3. interrput
+  // 4. abort
   enum
   {
-    EVENT_NULL = 0,
-    EVENT_YIELD,
-    EVENT_SYSCALL,
-    EVENT_PAGEFAULT,
-    EVENT_ERROR,
-    EVENT_IRQ_TIMER,
-    EVENT_IRQ_IODEV,
+    EVENT_NULL = 0,  // None
+    EVENT_YIELD,     // Trap
+    EVENT_SYSCALL,   // Trap
+    EVENT_PAGEFAULT, // Fault
+    EVENT_ERROR,     // Abort
+    EVENT_IRQ_TIMER, // Interrupt
+    EVENT_IRQ_IODEV, // Interrupt
   } event;
   uintptr_t cause, ref;
   const char *msg;

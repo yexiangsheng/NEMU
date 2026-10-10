@@ -3,6 +3,9 @@
 #include <klib.h>
 #define CONFIG_ETRACE 0
 
+// Hardware Exception
+// ecall --> event --> exception handler
+
 static Context *(*user_handler)(Event, Context *) = NULL;
 
 void printf_context(Context *c)
@@ -11,6 +14,7 @@ void printf_context(Context *c)
          c->mcause, c->mstatus, c->mepc);
 }
 
+// Interrupt request
 Context *__am_irq_handle(Context *c)
 {
   if (user_handler)
@@ -27,7 +31,12 @@ Context *__am_irq_handle(Context *c)
       {
         ev.event = EVENT_YIELD;
       }
-      else
+      // else
+      //{
+      // ev.event = EVENT_SYSCALL;
+      // ev.cause = c->GPR1;
+      //}
+      if (c->GPR1 >= (uintptr_t)0 && c->GPR1 <= 256)
       {
         ev.event = EVENT_SYSCALL;
         ev.cause = c->GPR1;
@@ -38,6 +47,7 @@ Context *__am_irq_handle(Context *c)
       break;
     }
 
+    // more than interrupt request
     c = user_handler(ev, c);
     assert(c != NULL);
   }
@@ -45,6 +55,8 @@ Context *__am_irq_handle(Context *c)
   return c;
 }
 
+// keep Context(register)
+// this func will be call in start.S
 extern void __am_asm_trap(void);
 
 bool cte_init(Context *(*handler)(Event, Context *))
@@ -52,7 +64,7 @@ bool cte_init(Context *(*handler)(Event, Context *))
   // initialize exception entry
   asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));
 
-  // register event handler
+  // regi ster event handler
   user_handler = handler;
 
   return true;
@@ -63,6 +75,7 @@ Context *kcontext(Area kstack, void (*entry)(void *), void *arg)
   return NULL;
 }
 
+// trap function
 void yield()
 {
 #ifdef __riscv_e

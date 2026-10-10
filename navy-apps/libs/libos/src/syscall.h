@@ -1,7 +1,9 @@
 #ifndef __SYSCALL_H__
 #define __SYSCALL_H__
 
-enum {
+// syscall table (will be keep in OS kernel mem if in real machine)
+enum
+{
   SYS_exit,
   SYS_yield,
   SYS_open,

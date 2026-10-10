@@ -5,8 +5,7 @@
 
 #if !defined(__ISA_NATIVE__) || defined(__NATIVE_USE_KLIB__)
 
-// ==================== 辅助: 整数转字符串 ====================
-
+// int --> char*
 // 返回写入的字符数（不含 '\0'）
 static int __itoa(unsigned int val, char *buf)
 {
@@ -25,8 +24,6 @@ static int __itoa(unsigned int val, char *buf)
     buf[--i] = '0' + (v % 10);
   return len;
 }
-
-// ==================== vsnprintf —— 核心 ====================
 
 int vsnprintf(char *out, size_t n, const char *fmt, va_list ap)
 {

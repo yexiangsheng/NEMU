@@ -15,6 +15,8 @@
 
 #include <isa.h>
 
+// 简化的异常响应
+// 直接给出exception number & exception handler entry
 word_t isa_raise_intr(word_t NO, vaddr_t epc)
 {
   /* Trigger an interrupt/exception with ``NO''.
@@ -26,6 +28,14 @@ word_t isa_raise_intr(word_t NO, vaddr_t epc)
 
   return cpu.pc;
 }
+
+// word_t isa_trap(word_t NO, vaddr_t epc)
+//{
+// cpu.csr.mepc = epc;
+// cpu.csr.mcause = NO;
+// cpu.pc = cpu.csr.mtvec;
+// return cpu.pc;
+//}
 
 word_t isa_query_intr()
 {
