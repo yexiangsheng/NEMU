@@ -4,7 +4,8 @@
 /* kernel-side syscall handlers */
 
 /* man 2 write: on success, return the number of bytes written; -1 on error */
-static ssize_t sys_write(int fd, const void *buf, size_t count)
+static ssize_t
+sys_write(int fd, const void *buf, size_t count)
 {
   if (fd == 1 || fd == 2)
   { // stdout / stderr only
@@ -33,6 +34,11 @@ static int sys_yield(void)
   return 0;
 }
 
+static int sys_brk()
+{
+  return 0;
+}
+
 void do_syscall(Context *c)
 {
   uintptr_t a[4];
@@ -55,6 +61,9 @@ void do_syscall(Context *c)
     break;
   case SYS_write:
     c->GPRx = sys_write(a[1], (const void *)a[2], a[3]);
+    break;
+  case SYS_brk:
+    c->GPRx = sys_brk(a[1]);
     break;
   default:
     panic("Unhandled syscall ID = %d", a[0]);
