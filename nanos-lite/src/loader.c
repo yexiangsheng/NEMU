@@ -49,7 +49,7 @@ static uintptr_t loader(PCB *pcb, const char *filename)
 #else
 #error Unsupported ISA
 #endif
-  if (ehdr->e_machine != EXPECT_TYPE)
+  if (ehdr->e_machine != EM_RISCV)
     panic("unexpected machine type 0x%x (expect 0x%x)", ehdr->e_machine, EXPECT_TYPE);
 
   Log("entry = 0x%x, phoff = 0x%x, phnum = %d", ehdr->e_entry, ehdr->e_phoff, ehdr->e_phnum);
