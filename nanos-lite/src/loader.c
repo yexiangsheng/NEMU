@@ -34,16 +34,16 @@ static uintptr_t loader(PCB *pcb, const char *filename)
   Elf32_Ehdr *ehdr = (Elf32_Ehdr *)&ramdisk_start;
 
   /* check the ELF magic */
-  // assert(ehdr->e_ident[EI_MAG0] == ELFMAG0 &&
-  // ehdr->e_ident[EI_MAG1] == ELFMAG1 &&
-  // ehdr->e_ident[EI_MAG2] == ELFMAG2 &&
-  // ehdr->e_ident[EI_MAG3] == ELFMAG3);
+  assert(ehdr->e_ident[EI_MAG0] == ELFMAG0 &&
+         ehdr->e_ident[EI_MAG1] == ELFMAG1 &&
+         ehdr->e_ident[EI_MAG2] == ELFMAG2 &&
+         ehdr->e_ident[EI_MAG3] == ELFMAG3);
 
   /* check the machine type */
 #if defined(__ISA_AM_NATIVE__)
 #define EXPECT_TYPE EM_X86_64
 #elif defined(__ISA_X86__)
-#define EXPECT_TYPE EM_X86_64 // see /usr/include/elf.h to get the right type
+#define EXPECT_TYPE EM_386 // see /usr/include/elf.h to get the right type
 #elif defined(__riscv)
 #define EXPECT_TYPE EM_RISCV
 #else
