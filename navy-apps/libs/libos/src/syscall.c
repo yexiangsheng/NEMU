@@ -65,13 +65,13 @@ void _exit(int status)
 
 void _yield()
 {
-  _syscall(SYS_yield, 0, 0, 0);
+  _syscall_(SYS_yield, 0, 0, 0);
 }
 
 int _open(const char *path, int flags, mode_t mode)
 {
   //_exit(SYS_open);
-  _syscall(SYS_open, path, flags, mode);
+  _syscall_(SYS_open, path, flags, mode);
   return 0;
 }
 
