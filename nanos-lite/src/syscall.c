@@ -17,20 +17,31 @@ void do_syscall(Context *c)
   case SYS_yield:
     // ???
     // sys_ret = SYS_yield();
-    sys_yield();
+    c->GPRx = sys_yield();
     Log_syscall("yield", "null", "0");
+    break;
   case SYS_exit:
     // ???
     // how to transit machine state from nemu to nanos-lite?
-    sys_exit(0);
+    c->GPRx = sys_exit(0);
     Log_syscall("exit", "status", "0");
     break;
   case SYS_read:
-    ssize_t read_ret = sys_read(a[1], &a[2], a[3]);
+    ssize_t read_ret = 0;
+    do
+    {
+      read_ret = sys_read(a[1], &a[2], a[3]);
+    } while (read_ret == -1);
+    c->GPRx = read_ret;
     Log_syscall("read", "null", read_ret);
     break;
   case SYS_write:
-    ssize_t write_ret = sys_write(a[1], &a[2], a[3]);
+    ssize_t write_ret = 0;
+    do
+    {
+      write_ret = sys_write(a[1], &a[2], a[3]);
+    } while (write_ret == -1);
+    c->GPRx = write_ret;
     Log_syscall("write", "null", write_ret);
     break;
   default:
