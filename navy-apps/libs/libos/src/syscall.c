@@ -63,15 +63,22 @@ void _exit(int status)
     ;
 }
 
+void _yield()
+{
+  _syscall(SYS_yield, 0, 0, 0);
+}
+
 int _open(const char *path, int flags, mode_t mode)
 {
-  _exit(SYS_open);
+  //_exit(SYS_open);
+  _syscall(SYS_open, path, flags, mode);
   return 0;
 }
 
 int _write(int fd, void *buf, size_t count)
 {
-  _exit(SYS_write);
+  //_exit(SYS_write);
+  _syscall_(SYS_write, fd, buf, count);
   return 0;
 }
 
@@ -82,7 +89,8 @@ void *_sbrk(intptr_t increment)
 
 int _read(int fd, void *buf, size_t count)
 {
-  _exit(SYS_read);
+  //_exit(SYS_read);
+  _syscall_(SYS_read, fd, buf, count);
   return 0;
 }
 
