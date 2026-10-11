@@ -61,7 +61,7 @@ static uintptr_t sys_brk(uintptr_t incr)
 }
 
 // ==================== strace: 系统调用跟踪 ====================
-#define CONFIG_STRACE 1 // 改成 0 可一键关闭跟踪
+// 开关在 Makefile: make ... STRACE=1 时通过 -DCONFIG_STRACE 打开, 默认关闭
 
 #ifdef CONFIG_STRACE
 
