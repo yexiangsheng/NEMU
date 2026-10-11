@@ -75,12 +75,13 @@ size_t fs_read(int fd, void *buf, size_t len)
 
 size_t fs_write(int fd, const void *buf, size_t len)
 {
-  size_t file_location = file_table[fd].disk_offset;
-  size_t file_open_offset = file_table[fd].open_offset;
-  ramdisk_write(buf, file_location + file_open_offset, len);
-  file_table[fd].open_offset += len;
-  assert(file_table[fd].open_offset <= file_table[fd].size);
-  return len;
+  Finfo *f = &file_table[fd];
+  size_t remain = f->size - f->open_offset;
+  if (len > remain)
+    len = remain;
+  size_t nwrite = ramdisk_write(buf, f->disk_offset + f->open_offset, len);
+  f->open_offset += nwrite;
+  return nwrite;
 }
 
 size_t fs_lseek(int fd, size_t offset, int whence)
