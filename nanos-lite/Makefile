@@ -7,7 +7,6 @@ SRCS = $(shell find -L ./src/ -name "*.c" -o -name "*.cpp" -o -name "*.S")
 
 # strace 开关: 在 make 命令行加 STRACE=1 打开系统调用跟踪, 默认关闭
 # 例: make ARCH=riscv32-nemu STRACE=1 run
-STRACE = 0
 ifeq ($(strip $(STRACE)),1)
 CFLAGS += -DCONFIG_STRACE
 endif
