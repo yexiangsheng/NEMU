@@ -8,6 +8,9 @@ static Context *do_event(Event e, Context *c)
 {
   switch (e.event)
   {
+  case EVENT_YIELD:
+    yield();
+    break;
   case EVENT_SYSCALL:
     do_syscall(c);
     break;
@@ -19,7 +22,7 @@ static Context *do_event(Event e, Context *c)
 }
 
 void init_irq(void)
-  {
-    Log("Initializing interrupt/exception handler...");
-    cte_init(do_event);
-  }
+{
+  Log("Initializing interrupt/exception handler...");
+  cte_init(do_event);
+}
