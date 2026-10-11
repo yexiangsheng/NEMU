@@ -25,6 +25,21 @@ static int __itoa(unsigned int val, char *buf)
   return len;
 }
 
+// unsigned --> 十六进制数字(小写), 低位在前存入 buf, 返回长度
+static int __itox(unsigned int val, char *buf)
+{
+  int len = 0;
+  if (val == 0)
+    buf[len++] = '0';
+  while (val)
+  {
+    int digit = val & 0xf;
+    buf[len++] = digit < 10 ? '0' + digit : 'a' + digit - 10;
+    val >>= 4;
+  }
+  return len;
+}
+
 int vsnprintf(char *out, size_t n, const char *fmt, va_list ap)
 {
   char *dst = out;
@@ -100,18 +115,16 @@ int vsnprintf(char *out, size_t n, const char *fmt, va_list ap)
       break;
     }
     case 'x':
+    case 'p': // %p 与 glibc 习惯一致: 0x 前缀的十六进制
     {
+      if (p[0] == 'p')
+      {
+        PUT('0');
+        PUT('x');
+      }
       unsigned int val = va_arg(ap, unsigned int);
       char buf[9]; // 32 位最多 8 个十六进制位
-      int len = 0;
-      if (val == 0)
-        buf[len++] = '0';
-      while (val)
-      {
-        int digit = val & 0xf;
-        buf[len++] = digit < 10 ? '0' + digit : 'a' + digit - 10;
-        val >>= 4;
-      }
+      int len = __itox(val, buf);
       for (int i = len - 1; i >= 0; i--) // 低位先算出来的,倒着输出
         PUT(buf[i]);
       break;
