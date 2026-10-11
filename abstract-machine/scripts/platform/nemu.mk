@@ -30,6 +30,7 @@ image: image-dep
 
 run: insert-arg
 	$(MAKE) -C $(NEMU_HOME) ISA=$(ISA) run ARGS="$(NEMUFLAGS)" IMG=$(IMAGE).bin
+	@mkdir -p $(dir $(IMAGE).elf)log
 	awk '/^mtrace: /' $(dir $(IMAGE).elf)nemu-log.txt > $(dir $(IMAGE).elf)log/mtrace.txt
 	awk '/: *call \[|: *ret +\[/' $(dir $(IMAGE).elf)nemu-log.txt > $(dir $(IMAGE).elf)log/ftrace.txt
 
