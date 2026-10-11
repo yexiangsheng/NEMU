@@ -87,7 +87,7 @@ void *_sbrk(intptr_t increment)
   program_break == NULL ? &_end : program_break;
   char *old = program_break;
   char *new = old + increment;
-  if (!_syscall_(SYS_brk, new, 0, 0))
+  if (!_syscall_(SYS_brk, (intptr_t)new, 0, 0))
   {
     program_break = new;
     return old;
