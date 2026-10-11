@@ -2,6 +2,7 @@
 #include <elf.h>
 #include <ramdisk.h>
 #include <memory.h>
+#include <fs.h>
 
 #ifdef __LP64__
 #define Elf_Ehdr Elf64_Ehdr
@@ -65,7 +66,9 @@ static uintptr_t loader(PCB *pcb, const char *filename)
       continue;
     Log("loading segment %d: vaddr = 0x%x, filesz = 0x%x, memsz = 0x%x",
         i, phdr[i].p_vaddr, phdr[i].p_filesz, phdr[i].p_memsz);
-    ramdisk_read((void *)(uintptr_t)phdr[i].p_vaddr, phdr[i].p_offset, phdr[i].p_filesz);
+    // ramdisk_read((void *)(uintptr_t)phdr[i].p_vaddr, phdr[i].p_offset, phdr[i].p_filesz);
+    int fd = fs_open(filename, 0, 0);
+    fs_read(fd, (void *)(uintptr_t)phdr[i].p_vaddr, phdr[i].p_filesz);
     memset((void *)(uintptr_t)(phdr[i].p_vaddr + phdr[i].p_filesz), 0,
            phdr[i].p_memsz - phdr[i].p_filesz);
   }
