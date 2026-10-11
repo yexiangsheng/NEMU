@@ -52,24 +52,25 @@ static Finfo file_table[] __attribute__((used)) = {
 
 int fs_open(const char *pathname, int flags, int mode)
 {
-  for (int i = 0; i < FILE_NUM; i++)
-  {
-    if (!strcmp(file_table[i].name, pathname))
+  for (int i = 0; i < sizeof(file_table) / sizeof(file_table[0]); i++)
+    if (strcmp(file_table[i].name, pathname) == 0)
     {
+      file_table[i].open_offset = 0; // 每次打开都从头开始
       return i;
     }
-  }
-  return (int)-1;
+  panic("fs_open: %s not found", pathname);
+  return -1;
 }
 
 size_t fs_read(int fd, void *buf, size_t len)
 {
-  size_t file_location = file_table[fd].disk_offset;
-  size_t file_open_offset = file_table[fd].open_offset;
-  ramdisk_read(buf, file_location + file_open_offset, len);
-  file_table[fd].open_offset += len;
-  assert(file_table[fd].open_offset <= file_table[fd].size);
-  return len;
+  Finfo *f = &file_table[fd];
+  size_t remain = f->size - f->open_offset;
+  if (len > remain)
+    len = remain; // 最多读到文件尾
+  size_t nread = ramdisk_read(buf, f->disk_offset + f->open_offset, len);
+  f->open_offset += nread; // 推进位置
+  return nread;
 }
 
 size_t fs_write(int fd, const void *buf, size_t len)
@@ -84,26 +85,73 @@ size_t fs_write(int fd, const void *buf, size_t len)
 
 size_t fs_lseek(int fd, size_t offset, int whence)
 {
-  size_t file_location = file_table[fd].disk_offset;
-  size_t file_size = file_table[fd].size;
-  size_t file_open_offset = file_table[fd].open_offset;
-  if (whence == SEEK_SET)
+  Finfo *f = &file_table[fd];
+  switch (whence)
   {
-    assert(offset <= file_table[fd].size);
-    return file_location + offset;
+  case SEEK_SET:
+    f->open_offset = offset;
+    break;
+  case SEEK_CUR:
+    f->open_offset += offset;
+    break;
+  case SEEK_END:
+    f->open_offset = f->size + offset;
+    break;
+  default:
+    return (off_t)-1;
   }
-  if (whence == SEEK_CUR)
-  {
-    assert(file_open_offset + offset <= file_table[fd].size);
-    return file_location + file_open_offset + offset;
-  }
-  if (whence == SEEK_END)
-  {
-    assert(file_size + offset <= file_table[fd].size);
-    return file_location + file_size + offset;
-  }
-  return (off_t)-1;
+  return f->open_offset; // 返回文件内偏移,不是 ramdisk 绝对位置
 }
+
+#if 0 // 旧实现
+
+// int fs_open(const char *pathname, int flags, int mode)
+//{
+// for (int i = 0; i < FILE_NUM; i++)
+//{
+// if (!strcmp(file_table[i].name, pathname))
+//{
+// file_table[i].open_offset = 0;
+// return i;
+//}
+//}
+// panic("fs_open: %s not found", pathname);
+// return (int)-1;
+//}
+// size_t fs_read(int fd, void *buf, size_t len)
+//{
+// size_t file_location = file_table[fd].disk_offset;
+// size_t file_open_offset = file_table[fd].open_offset;
+// ramdisk_read(buf, file_location + file_open_offset, len);
+// file_table[fd].open_offset += len;
+// assert(file_table[fd].open_offset <= file_table[fd].size);
+// return len;
+//}
+
+
+// size_t fs_lseek(int fd, size_t offset, int whence)
+//{
+// size_t file_location = file_table[fd].disk_offset;
+// size_t file_size = file_table[fd].size;
+// size_t file_open_offset = file_table[fd].open_offset;
+// if (whence == SEEK_SET)
+//{
+// assert(offset <= file_table[fd].size);
+// return file_location + offset;
+//}
+// if (whence == SEEK_CUR)
+//{
+// assert(file_open_offset + offset <= file_table[fd].size);
+// return file_location + file_open_offset + offset;
+//}
+// if (whence == SEEK_END)
+//{
+// assert(file_size + offset <= file_table[fd].size);
+// return file_location + file_size + offset;
+//}
+// return (off_t)-1;
+//}
+#endif
 
 int fs_close(int fd)
 {

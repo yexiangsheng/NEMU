@@ -25,6 +25,28 @@
 
 //}
 
+// loader() 最终实现
+static uintptr_t loader(PCB *pcb, const char *filename)
+{
+  int fd = fs_open(filename, 0, 0);
+  Elf32_Ehdr ehdr;
+  fs_read(fd, &ehdr, sizeof(ehdr)); // 从文件读 ELF 头
+  for (int i = 0; i < ehdr.e_phnum; i++)
+  {
+    Elf32_Phdr phdr;
+    fs_lseek(fd, ehdr.e_phoff + i * sizeof(phdr), SEEK_SET); // 定位到程序头表
+    fs_read(fd, &phdr, sizeof(phdr));
+    if (phdr.p_type != PT_LOAD)
+      continue;
+    fs_lseek(fd, phdr.p_offset, SEEK_SET); // 段数据在文件中的位置
+    fs_read(fd, (void *)(uintptr_t)phdr.p_vaddr, phdr.p_filesz);
+    memset((void *)(uintptr_t)(phdr.p_vaddr + phdr.p_filesz), 0,
+           phdr.p_memsz - phdr.p_filesz); // 清 .bss
+  }
+  return ehdr.e_entry;
+}
+
+#if 0 // 第二版
 static uintptr_t loader(PCB *pcb, const char *filename)
 {
   // TODO();
@@ -32,7 +54,8 @@ static uintptr_t loader(PCB *pcb, const char *filename)
   /* the ramdisk holds exactly one ELF file at this stage, so `filename'
    * is ignored and the ELF header sits at the very beginning of the ramdisk.
    */
-  Elf32_Ehdr *ehdr = (Elf32_Ehdr *)&ramdisk_start;
+  int fd = fs_open(filename, 0, 0);
+  Elf32_Ehdr *ehdr = fs_read(fd, &ramdisk_start, sizeof());
 
   /* check the ELF magic */
   assert(ehdr->e_ident[EI_MAG0] == ELFMAG0 &&
@@ -67,7 +90,6 @@ static uintptr_t loader(PCB *pcb, const char *filename)
     Log("loading segment %d: vaddr = 0x%x, filesz = 0x%x, memsz = 0x%x",
         i, phdr[i].p_vaddr, phdr[i].p_filesz, phdr[i].p_memsz);
     // ramdisk_read((void *)(uintptr_t)phdr[i].p_vaddr, phdr[i].p_offset, phdr[i].p_filesz);
-    int fd = fs_open(filename, 0, 0);
     fs_read(fd, (void *)(uintptr_t)phdr[i].p_vaddr, phdr[i].p_filesz);
     memset((void *)(uintptr_t)(phdr[i].p_vaddr + phdr[i].p_filesz), 0,
            phdr[i].p_memsz - phdr[i].p_filesz);
@@ -75,6 +97,7 @@ static uintptr_t loader(PCB *pcb, const char *filename)
 
   return ehdr->e_entry;
 }
+#endif
 
 #if 0 // 旧实现
 static uintptr_t loader(PCB *pcb, const char *filename)
@@ -175,7 +198,7 @@ static uintptr_t loader(PCB *pcb, const char *filename)
 
   return 0;
 }
-#endif // 旧实现结束
+#endif
 
 void naive_uload(PCB *pcb, const char *filename)
 {
