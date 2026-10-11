@@ -1,5 +1,6 @@
 #include <common.h>
 #include <fs.h>
+#include <sys/time.h>
 #include "syscall.h"
 
 /* kernel-side syscall handlers */
@@ -9,13 +10,6 @@ uintptr_t mm_brk(uintptr_t incr); // implemented in mm.c
 /* man 2 write: on success, return the number of bytes written; -1 on error */
 static ssize_t sys_write(int fd, const void *buf, size_t count)
 {
-  if (fd == 1 || fd == 2)
-  { // stdout / stderr: output to the serial port, byte by byte
-    const char *p = buf;
-    for (size_t i = 0; i < count; i++)
-      putch(p[i]);
-    return count;
-  }
   return fs_write(fd, buf, count); // regular files: write to ramdisk
 }
 
@@ -60,6 +54,13 @@ static uintptr_t sys_brk(uintptr_t incr)
   return mm_brk(incr); // 返回旧 break,作为 _sbrk 的返回值
 }
 
+static int sys_gettimeofdy(struct timeval *tv, struct timezone *tz)
+{
+  uint64_t us = io_read(AM_TIMER_UPTIME).us;
+  tv->tv_sec = us / 1000000;
+  tv->tv_usec = us % 1000000;
+  return 0;
+}
 // ==================== strace: 系统调用跟踪 ====================
 // 开关在 Makefile: make ... STRACE=1 时通过 -DCONFIG_STRACE 打开, 默认关闭
 
@@ -198,6 +199,8 @@ void do_syscall(Context *c)
   case SYS_brk:
     c->GPRx = sys_brk(a[1]);
     break;
+  case SYS_gettimeofday:
+    c->GPRx = sys_gettimeofdy((struct timeval *)a[1], (struct timezone *)a[2]);
   default:
     panic("Unhandled syscall ID = %d", a[0]);
   }
