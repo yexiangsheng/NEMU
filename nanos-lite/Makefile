@@ -11,12 +11,8 @@ ifeq ($(strip $(STRACE)),1)
 CFLAGS += -DCONFIG_STRACE
 endif
 
-# 彩色日志开关: 终端看日志保持彩色, 重定向到文件时用 COLOR=0 去掉 ANSI 颜色码
-# 例: make ARCH=riscv32-nemu COLOR=0 run > run-log.txt
-COLOR = 1
-ifeq ($(strip $(COLOR)),0)
-CFLAGS += -DCONFIG_NO_LOG_COLOR
-endif
+# 日志默认带 ANSI 颜色; 想要无色纯文本文件时, 在重定向处过滤即可, 无需改编译:
+#   make ARCH=riscv32-nemu run 2>&1 | sed 's/\x1b\[[0-9;]*m//g' > run-log.txt
 
 include $(AM_HOME)/Makefile
 
