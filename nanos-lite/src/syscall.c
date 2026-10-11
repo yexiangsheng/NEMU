@@ -4,18 +4,19 @@
 
 /* kernel-side syscall handlers */
 
+uintptr_t mm_brk(uintptr_t incr); // implemented in mm.c
+
 /* man 2 write: on success, return the number of bytes written; -1 on error */
 static ssize_t sys_write(int fd, const void *buf, size_t count)
 {
-  // if (fd == 1 || fd == 2)
-  //{ // stdout / stderr only
-  // const char *p = buf;
-  //// for (size_t i = 0; i < count; i++)
-  //// putch(p[i]); // output to the serial port, byte by byte
-  //// return count;
-  return fs_write(fd, buf, count);
-  //}
-  // return -1; // other fds are not supported yet
+  if (fd == 1 || fd == 2)
+  { // stdout / stderr: output to the serial port, byte by byte
+    const char *p = buf;
+    for (size_t i = 0; i < count; i++)
+      putch(p[i]);
+    return count;
+  }
+  return fs_write(fd, buf, count); // regular files: write to ramdisk
 }
 
 /* no input source in this stage: return 0 = EOF */
@@ -54,9 +55,9 @@ static int sys_yield(void)
   return 0;
 }
 
-static int sys_brk()
+static uintptr_t sys_brk(uintptr_t incr)
 {
-  return 0;
+  return mm_brk(incr); // 返回旧 break,作为 _sbrk 的返回值
 }
 
 void do_syscall(Context *c)
