@@ -31,6 +31,7 @@ static uintptr_t loader(PCB *pcb, const char *filename)
   int fd = fs_open(filename, 0, 0);
   Elf32_Ehdr ehdr;
   fs_read(fd, &ehdr, sizeof(ehdr)); // 从文件读 ELF 头
+  Log("entry = 0x%x, phoff = 0x%x, phnum = %d", ehdr.e_entry, ehdr.e_phoff, ehdr.e_phnum);
   for (int i = 0; i < ehdr.e_phnum; i++)
   {
     Elf32_Phdr phdr;
