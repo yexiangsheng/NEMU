@@ -183,9 +183,16 @@ fsimg: $(addprefix apps/, $(APPS)) $(addprefix tests/, $(TESTS))
 	-for t in $^; do $(MAKE) -s -C $(NAVY_HOME)/$$t install; done
 	@echo "+ TEST file :" $(TESTS)
 
+DEV_EVENT = events
+
+dev: 
+	@mkdir -p $(NAVY_HOME)/fsimg/dev
+	@touch $(DEV_EVENT)
+	@echo "// poll events" > $(DEV_EVENT)
+
 RAMDISK = build/ramdisk.img
 RAMDISK_H = build/ramdisk.h
-$(RAMDISK): fsimg
+$(RAMDISK): fsimg dev
 #@rm -f $(addprefix $(NAVY_HOME)/fsimg/bin/, $(filter-out $(TESTS) $(APPS), $(notdir $(wildcard $(NAVY_HOME)/fsimg/bin/*))))	$(eval FSIMG_FILES := $(shell find -L ./fsimg -type f))
 	$(eval FSIMG_FILES := $(shell find -L ./fsimg -type f))
 	@mkdir -p $(@D)
