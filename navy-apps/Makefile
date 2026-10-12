@@ -44,7 +44,6 @@ $(shell mkdir -p $(DST_DIR))
 APP     ?= $(WORK_DIR)/build/$(NAME)-$(ISA)
 ARCHIVE  = $(WORK_DIR)/build/$(NAME)-$(ISA).a
 
-
 ### Add default libraries for ISA != native
 ifneq ($(ISA), native)
 LIBS += libc libos
@@ -183,7 +182,7 @@ TESTS = dummy hello file-test timer-test
 fsimg: $(addprefix apps/, $(APPS)) $(addprefix tests/, $(TESTS))
 	-for t in $^; do $(MAKE) -s -C $(NAVY_HOME)/$$t install; done
 
-RAMDISK = build/ramdisk.img
+RAMDISK = build/k.img
 RAMDISK_H = build/ramdisk.h
 $(RAMDISK): fsimg
 	$(eval FSIMG_FILES := $(shell find -L ./fsimg -type f))
