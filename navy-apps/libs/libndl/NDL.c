@@ -10,8 +10,10 @@ static int screen_w = 0, screen_h = 0;
 
 uint32_t NDL_GetTicks()
 {
-
-  return 0;
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  uint32_t now = (uint32_t)tv.tv_sec * 1000000 + tv.tv_usec;
+  return now;
 }
 
 int NDL_PollEvent(char *buf, int len)
