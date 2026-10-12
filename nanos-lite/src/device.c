@@ -53,31 +53,31 @@ size_t events_read(void *buf, size_t offset, size_t len)
 
 size_t dispinfo_read(void *buf, size_t offset, size_t len)
 {
-  AM_GPU_FBDRAW_T gpu = io_read(AM_GPU_FBDRAW);
-  int x = gpu.x, y = gpu.y, w = gpu.w, h = gpu.h;
-  uint32_t *pixels = gpu.pixels;
-
-  char tmp[x][y];
-  for (int i = y; i < y + h; i++)
-  {
-    for (int j = x; j < x + w; j++)
-    {
-      tmp[i][j] = pixels[w * (i - y) + (j - x)];
-    }
-  }
-
-  int size = w * h;
-  if (size > len)
-  {
-    size = len;
-  }
-  memcpy(buf, tmp, size);
-  return 0;
+  // /proc/dispinfo 是文本文件: WIDTH:400\nHEIGHT:300\n
+  // NDL 靠它拿到屏幕宽高(乘积拆不开,必须分别给出)
+  AM_GPU_CONFIG_T info = io_read(AM_GPU_CONFIG);
+  char tmp[64];
+  int n = sprintf(tmp, "WIDTH:%d\nHEIGHT:%d\n", info.width, info.height);
+  if (offset >= (size_t)n)
+    return 0; // 已读过文件尾
+  if (len > (size_t)(n - offset))
+    len = n - offset;
+  memcpy(buf, tmp + offset, len);
+  return len;
 }
 
 size_t fb_write(const void *buf, size_t offset, size_t len)
 {
-  return 0;
+  if (len == 0)
+    return 0;
+  int screen_w = io_read(AM_GPU_CONFIG).width;
+  size_t px = offset / 4; // 字节偏移 → 像素序号(每像素 4 字节)
+  // 一条 h=1 的水平带:行尾越界由 fbdraw 的线性下标自然回卷到下一行
+  io_write(AM_GPU_FBDRAW,
+           .x = px % screen_w, .y = px / screen_w,
+           .w = len / 4, .h = 1,
+           .sync = 1, .pixels = (uint32_t *)buf); // AM 接口无 const,显式跨界
+  return len;
 }
 
 void init_device()

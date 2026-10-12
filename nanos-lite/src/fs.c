@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <string.h>
 #include <device.h>
+#include <stdio.h>
 
 #define FILE_NUM sizeof(file_table) / sizeof(Finfo)
 
@@ -29,7 +30,8 @@ enum
   FD_STDOUT,
   FD_STDERR,
   FD_EVENTS,
-  FD_FB
+  FD_FB,
+  FD_DISPINFO
 };
 
 size_t invalid_read(void *buf, size_t offset, size_t len)
@@ -50,7 +52,8 @@ static Finfo file_table[] __attribute__((used)) = {
     [FD_STDOUT] = {"stdout", 0, 0, 0, invalid_read, serial_write},
     [FD_STDERR] = {"stderr", 0, 0, 0, invalid_read, serial_write},
     [FD_EVENTS] = {"/dev/events", 0, 0, 0, events_read, invalid_write},
-    [FD_FB] = {"/dev/fb", 0, 0, 0, dispinfo_read, invalid_write},
+    [FD_FB] = {"/dev/fb", 0, 0, 0, invalid_read, fb_write},
+    [FD_DISPINFO] = {"/proc/dispinfo", 0, 0, 0, dispinfo_read, invalid_write},
 #include "files.h"
 };
 
@@ -69,16 +72,14 @@ int fs_open(const char *pathname, int flags, int mode)
 size_t fs_read(int fd, void *buf, size_t len)
 {
   Finfo *f = &file_table[fd];
-  size_t remain = f->size - f->open_offset;
-  switch (fd)
+  // 特殊文件: read 指针非空则转发(events/dispinfo),普通文件走 ramdisk
+  if (f->read != NULL)
   {
-  case 3: // keyboard
-    return f->read(buf, f->open_offset, len);
-  case 4: // vga
-    return f->read(buf, 0, len);
-  default:
-    break;
+    size_t nread = f->read(buf, f->open_offset, len);
+    f->open_offset += nread; // 同样推进位置,循环读 dispinfo 才会终止
+    return nread;
   }
+  size_t remain = f->size - f->open_offset;
   if (len > remain)
     len = remain; // 最多读到文件尾
   size_t nread = ramdisk_read(buf, f->disk_offset + f->open_offset, len);
@@ -89,9 +90,13 @@ size_t fs_read(int fd, void *buf, size_t len)
 size_t fs_write(int fd, const void *buf, size_t len)
 {
   Finfo *f = &file_table[fd];
-  // serial
+  // 特殊文件: write 指针非空则转发(stdout/stderr 串口, /dev/fb 显存)
   if (f->write != NULL)
-    return f->write(buf, f->open_offset, len);
+  {
+    size_t nwrite = f->write(buf, f->open_offset, len);
+    f->open_offset += nwrite; // 推进位置:/dev/fb 连续写依赖它
+    return nwrite;
+  }
   size_t remain = f->size - f->open_offset;
   if (len > remain)
     len = remain;
@@ -177,5 +182,7 @@ int fs_close(int fd)
 
 void init_fs()
 {
-  // TODO: initialize the size of /dev/fb
+  // /dev/fb 的大小 = 屏幕像素数 × 每像素 4 字节,开机时从 MMIO 现场问出
+  AM_GPU_CONFIG_T info = io_read(AM_GPU_CONFIG);
+  file_table[FD_FB].size = info.width * info.height * sizeof(uint32_t);
 }

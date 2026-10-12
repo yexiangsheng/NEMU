@@ -11,6 +11,8 @@
 static int evtdev = -1;
 static int fbdev = -1;
 static int screen_w = 0, screen_h = 0;
+static int canvas_w = 0, canvas_h = 0;
+static int canvas_x = 0, canvas_y = 0;
 
 uint32_t NDL_GetTicks()
 {
@@ -56,10 +58,44 @@ void NDL_OpenCanvas(int *w, int *h)
     }
     close(fbctl);
   }
+  else
+  {
+    // 从 /proc/dispinfo 拿屏幕宽高
+    int fd = open("/proc/dispinfo", 0);
+    char buf[128];
+    int n = read(fd, buf, sizeof(buf) - 1);
+    close(fd);
+    if (n < 0)
+      n = 0;
+    buf[n] = '\0';
+    sscanf(buf, "WIDTH : %d\nHEIGHT : %d", &screen_w, &screen_h);
+
+    // 0 表示全屏画布;不允许超过屏幕
+    if (*w == 0 || *w > screen_w)
+      *w = screen_w;
+    if (*h == 0 || *h > screen_h)
+      *h = screen_h;
+    canvas_w = *w;
+    canvas_h = *h;
+    canvas_x = (screen_w - canvas_w) / 2; // 画布在屏幕上居中
+    canvas_y = (screen_h - canvas_h) / 2;
+  }
 }
 
 void NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h)
 {
+  // 必须逐行写:矩形行与行之间在屏幕上隔着 screen_w - w 的间隙,
+  // 一把梭连续写会把矩形抹成斜条
+  int fb = open("/dev/fb", 0);
+  if (fb < 0)
+    return;
+  for (int i = 0; i < h; i++)
+  {
+    size_t offset = ((size_t)(canvas_y + y + i) * screen_w + (canvas_x + x)) * 4;
+    lseek(fb, offset, SEEK_SET);
+    write(fb, pixels + (size_t)i * w, w * 4);
+  }
+  close(fb);
 }
 
 void NDL_OpenAudio(int freq, int channels, int samples)
