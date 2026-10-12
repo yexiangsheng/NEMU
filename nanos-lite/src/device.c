@@ -53,6 +53,25 @@ size_t events_read(void *buf, size_t offset, size_t len)
 
 size_t dispinfo_read(void *buf, size_t offset, size_t len)
 {
+  AM_GPU_FBDRAW_T gpu = io_read(AM_GPU_FBDRAW);
+  int x = gpu.x, y = gpu.y, w = gpu.w, h = gpu.h;
+  uint32_t *pixels = gpu.pixels;
+
+  char tmp[x][y];
+  for (int i = y; i < y + h; i++)
+  {
+    for (int j = x; j < x + w; j++)
+    {
+      tmp[i][j] = pixels[w * (i - y) + (j - x)];
+    }
+  }
+
+  int size = w * h;
+  if (size > len)
+  {
+    size = len;
+  }
+  memcpy(buf, tmp, size);
   return 0;
 }
 
