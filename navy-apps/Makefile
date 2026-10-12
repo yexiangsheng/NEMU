@@ -177,7 +177,7 @@ $(CLEAN_ALL):
 
 ### Build fsimg and ramdisk for Nanos-lite
 APPS =
-TESTS = file-test timer-test
+TESTS = file-test timer-test event-test
 
 fsimg: $(addprefix apps/, $(APPS)) $(addprefix tests/, $(TESTS))
 	-for t in $^; do $(MAKE) -s -C $(NAVY_HOME)/$$t install; done
@@ -187,7 +187,7 @@ DEV_EVENT = events
 
 dev: 
 	@mkdir -p $(NAVY_HOME)/fsimg/dev
-	@touch $(DEV_EVENT)
+	@touch $(NAVY_HOME)/fsimg/dev/$(DEV_EVENT)
 	@echo "// poll events" > $(DEV_EVENT)
 
 RAMDISK = build/ramdisk.img

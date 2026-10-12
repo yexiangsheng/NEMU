@@ -23,9 +23,32 @@ size_t serial_write(const void *buf, size_t offset, size_t len)
   return len;
 }
 
+#if 0  
+// size_t events_read(void *buf, size_t offset, size_t len)
+//{
+// AM_INPUT_KEYBRD_T ev = io_read(AM_INPUT_KEYBRD);
+// if (ev.keycode == AM_KEY_NONE)
+//{
+// return 0;
+//}
+// char tmp[64];
+// int n = sprintf();
+// return 0;
+//}
+#endif
+
 size_t events_read(void *buf, size_t offset, size_t len)
 {
-  return 0;
+  AM_INPUT_KEYBRD_T ev = io_read(AM_INPUT_KEYBRD);
+  if (ev.keycode == AM_KEY_NONE)
+    return 0; // 无有效按键 → 0
+  char tmp[64];
+  int n = sprintf(tmp, "%s %s\n", ev.keydown ? "kd" : "ku",
+                  keyname[ev.keycode]); // 你已有的 keyname 数组
+  if (n > (int)len)
+    n = len; // 最长写 len 字节
+  memcpy(buf, tmp, n);
+  return n;
 }
 
 size_t dispinfo_read(void *buf, size_t offset, size_t len)

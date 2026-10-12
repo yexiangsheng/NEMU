@@ -58,6 +58,7 @@ static void key_enqueue(uint32_t am_scancode)
   key_r = (key_r + 1) % KEY_QUEUE_LEN;
   Assert(key_r != key_f, "key queue overflow!");
 }
+
 static uint32_t key_dequeue()
 {
   uint32_t key = NEMU_KEY_NONE;
@@ -90,6 +91,10 @@ static uint32_t key_dequeue()
 
 static uint32_t *i8042_data_port_base = NULL;
 
+// keyboard's secret
+// NEMU: poll轮询获取按键输入 --> 存储在queue buff中 --> 存储到dev reg pmem中
+// AM: 通过reg可以读取按键
+// klib: 抽象成 io_read & io_write
 static void i8042_data_io_handler(uint32_t offset, int len, bool is_write)
 {
   assert(!is_write);

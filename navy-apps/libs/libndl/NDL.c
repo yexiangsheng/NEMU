@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/time.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 static int evtdev = -1;
 static int fbdev = -1;
@@ -18,7 +22,14 @@ uint32_t NDL_GetTicks()
 
 int NDL_PollEvent(char *buf, int len)
 {
-  return 0;
+  int fd = open("/dev/events", 0);
+  if (fd < 0)
+    return 0;
+  int n = read(fd, buf, len - 1);
+  close(fd);
+  if (n > 0)
+    buf[n] = '\0'; // 文件读出的是裸字节,补 C 字符串结尾
+  return n;
 }
 
 void NDL_OpenCanvas(int *w, int *h)
