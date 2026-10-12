@@ -177,10 +177,11 @@ $(CLEAN_ALL):
 
 ### Build fsimg and ramdisk for Nanos-lite
 APPS =
-TESTS = dummy file-test timer-test
+TESTS = file-test timer-test
 
 fsimg: $(addprefix apps/, $(APPS)) $(addprefix tests/, $(TESTS))
 	-for t in $^; do $(MAKE) -s -C $(NAVY_HOME)/$$t install; done
+	@echo "+ TEST file :" $(TESTS)
 
 RAMDISK = build/ramdisk.img
 RAMDISK_H = build/ramdisk.h
