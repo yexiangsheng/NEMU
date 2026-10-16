@@ -31,4 +31,33 @@ config MEM_RANDOM
   help
     This may help to find undefined behaviors.
 
+config CACHE
+  depends on MODE_SYSTEM && ENGINE_INTERPRETER && TARGET_NATIVE_ELF
+  bool "Enable simulated two-level inclusive cache"
+  default n
+  help
+    Simulate a unified, inclusive, write-back + write-allocate two-level
+    cache (L1 64B, L2 256B, 8B lines) in front of the physical memory.
+    MMIO accesses are not cached. Hit/miss statistics are printed at exit.
+
+if CACHE
+
+config CACHE_L1_WAYS
+  int "L1 associativity (power of 2 dividing 8)"
+  range 1 8
+  default 1
+  help
+    Ways per L1 set: 1 = direct-mapped, 8 = fully associative.
+    LRU replacement is used when the associativity is greater than 1.
+
+config CACHE_L2_WAYS
+  int "L2 associativity (power of 2 dividing 32)"
+  range 1 32
+  default 1
+  help
+    Ways per L2 set: 1 = direct-mapped, 32 = fully associative.
+    LRU replacement is used when the associativity is greater than 1.
+
+endif
+
 endmenu #MEMORY

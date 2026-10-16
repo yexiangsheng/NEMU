@@ -14,6 +14,7 @@ static int screen_w = 0, screen_h = 0;
 static int canvas_w = 0, canvas_h = 0;
 static int canvas_x = 0, canvas_y = 0;
 
+// timer
 uint32_t NDL_GetTicks()
 {
   struct timeval tv;
@@ -22,6 +23,7 @@ uint32_t NDL_GetTicks()
   return now;
 }
 
+// keyboard
 int NDL_PollEvent(char *buf, int len)
 {
   int fd = open("/dev/events", 0);
@@ -34,6 +36,7 @@ int NDL_PollEvent(char *buf, int len)
   return n;
 }
 
+// gpu
 void NDL_OpenCanvas(int *w, int *h)
 {
   if (getenv("NWM_APP"))
@@ -82,11 +85,12 @@ void NDL_OpenCanvas(int *w, int *h)
   }
 }
 
+// gpu
 void NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h)
 {
   // 必须逐行写:矩形行与行之间在屏幕上隔着 screen_w - w 的间隙,
-  // 一把梭连续写会把矩形抹成斜条
   int fb = open("/dev/fb", 0);
+  // 一把梭连续写会把矩形抹成斜条
   if (fb < 0)
     return;
   for (int i = 0; i < h; i++)

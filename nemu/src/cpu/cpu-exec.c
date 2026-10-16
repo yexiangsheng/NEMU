@@ -18,6 +18,7 @@
 #include <cpu/difftest.h>
 #include <memory/vaddr.h>
 #include <memory/paddr.h>
+#include <memory/cache.h>
 #ifdef CONFIG_WATCHPOINT
 #include "../monitor/sdb/sdb.h"
 #endif
@@ -226,6 +227,7 @@ static void statistic()
     Log("simulation frequency = " NUMBERIC_FMT " inst/s", g_nr_guest_inst * 1000000 / g_timer);
   else
     Log("Finish running in less than 1 us and can not calculate the simulation frequency");
+  IFDEF(CONFIG_CACHE, cache_statistic());
 }
 
 void assert_fail_msg()

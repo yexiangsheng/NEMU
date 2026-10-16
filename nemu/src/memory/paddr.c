@@ -15,6 +15,7 @@
 
 #include <memory/host.h>
 #include <memory/paddr.h>
+#include <memory/cache.h>
 #include <device/mmio.h>
 #include <isa.h>
 
@@ -27,6 +28,8 @@ static uint8_t pmem[CONFIG_MSIZE] PG_ALIGN = {};
 uint8_t *guest_to_host(paddr_t paddr) { return pmem + paddr - CONFIG_MBASE; }
 paddr_t host_to_guest(uint8_t *haddr) { return haddr - pmem + CONFIG_MBASE; }
 
+#ifndef CONFIG_CACHE
+// pmem_read/pmem_write are replaced by the cache hierarchy when CONFIG_CACHE is on
 static word_t pmem_read(paddr_t addr, int len)
 {
   word_t ret = host_read(guest_to_host(addr), len);
@@ -37,6 +40,7 @@ static void pmem_write(paddr_t addr, int len, word_t data)
 {
   host_write(guest_to_host(addr), len, data);
 }
+#endif
 
 static void out_of_bound(paddr_t addr)
 {
@@ -68,14 +72,18 @@ static void mtrace_log(const char *op, paddr_t addr, int len, word_t data)
 
 word_t paddr_read(paddr_t addr, int len)
 {
-  // In physical memory -> pmem_read
+  // In physical memory -> pmem_read / cache_read
   if (likely(in_pmem(addr)))
   {
+#ifdef CONFIG_CACHE
+    word_t ret = cache_read(addr, len);
+#else
     word_t ret = pmem_read(addr, len);
+#endif
     IFDEF(CONFIG_MTRACE, mtrace_log("read", addr, len, ret));
     return ret;
   }
-  // In IO memory -> mmio_read
+  // In IO memory -> mmio_read (MMIO accesses are never cached)
   IFDEF(CONFIG_DEVICE, return mmio_read(addr, len));
   out_of_bound(addr);
   return 0;
@@ -85,7 +93,11 @@ void paddr_write(paddr_t addr, int len, word_t data)
 {
   if (likely(in_pmem(addr)))
   {
+#ifdef CONFIG_CACHE
+    cache_write(addr, len, data);
+#else
     pmem_write(addr, len, data);
+#endif
     IFDEF(CONFIG_MTRACE, mtrace_log("write", addr, len, data));
     return;
   }

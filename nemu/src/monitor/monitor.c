@@ -15,6 +15,7 @@
 
 #include <isa.h>
 #include <memory/paddr.h>
+#include <memory/cache.h>
 #include "ftrace.h"
 
 void init_rand();
@@ -137,6 +138,9 @@ void init_monitor(int argc, char *argv[])
 
   /* Initialize memory. */
   init_mem();
+
+  /* Initialize the cache hierarchy. Must run before the image is loaded. */
+  IFDEF(CONFIG_CACHE, init_cache());
 
   /* Initialize devices. */
   IFDEF(CONFIG_DEVICE, init_device());
