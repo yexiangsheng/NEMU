@@ -2,7 +2,8 @@
 #include <SDL.h>
 
 int SDL_OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained) {
-  UNIMPL(0);
+  // 无声卡:返回 -1 报告失败,让应用走"无音效继续运行"的分支
+  UNIMPL(-1);
 }
 
 void SDL_CloseAudio() {
