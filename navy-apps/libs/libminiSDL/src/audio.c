@@ -2,8 +2,9 @@
 #include <SDL.h>
 
 int SDL_OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained) {
-  // 无声卡:返回 -1 报告失败,让应用走"无音效继续运行"的分支
-  UNIMPL(-1);
+  // 返回 0 假装成功:bird 的 BirdMain 里 SOUND_OpenAudio 失败(返回值 < 0)会直接退出,
+  // 必须让它以为打开了音频,后续音频 API 全是空操作即可(无音效运行)
+  UNIMPL(0);
 }
 
 void SDL_CloseAudio() {
