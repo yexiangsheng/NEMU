@@ -10,7 +10,7 @@ int SDL_RemoveTimer(SDL_TimerID id) {
 }
 
 uint32_t SDL_GetTicks() {
-  UNIMPL(0);
+  return NDL_GetTicks() / 1000; // NDL 约定微秒,timer-test 按 us 使用;SDL 接口约定毫秒
 }
 
 void SDL_Delay(uint32_t ms) {

@@ -1,5 +1,8 @@
 #include <NDL.h>
 #include <SDL.h>
+#include <string.h>
+
+extern void _yield(void); // libos 提供:陷入内核让出 CPU
 
 #define keyname(k) #k,
 
@@ -12,12 +15,29 @@ int SDL_PushEvent(SDL_Event *ev) {
   UNIMPL(0);
 }
 
+// 轮询一次事件,读到 "kd KEY" / "ku KEY" 则解析填入 *ev 并返回 1,无事件返回 0
+static int read_event(SDL_Event *ev) {
+  char buf[64], type[8], key[32];
+  int n = NDL_PollEvent(buf, sizeof(buf));
+  if (n <= 0) return 0;
+  if (sscanf(buf, "%s %s", type, key) != 2) return 0;
+  for (size_t i = 0; i < sizeof(keyname) / sizeof(keyname[0]); i++) {
+    if (strcmp(keyname[i], key) == 0) {
+      ev->key.type = (type[1] == 'd') ? SDL_KEYDOWN : SDL_KEYUP;
+      ev->key.keysym.sym = i;
+      return 1;
+    }
+  }
+  return 0; // 无法识别的键名,丢弃
+}
+
 int SDL_PollEvent(SDL_Event *ev) {
-  UNIMPL(0);
+  return read_event(ev);
 }
 
 int SDL_WaitEvent(SDL_Event *event) {
-  UNIMPL(1);
+  while (!read_event(event)) _yield(); // 无事件时让出 CPU,避免空转
+  return 1;
 }
 
 int SDL_PeepEvents(SDL_Event *ev, int numevents, int action, uint32_t mask) {
