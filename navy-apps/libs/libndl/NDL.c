@@ -37,6 +37,7 @@ int NDL_PollEvent(char *buf, int len)
 }
 
 // gpu
+// set Canvas w/h and x/y
 void NDL_OpenCanvas(int *w, int *h)
 {
   if (getenv("NWM_APP"))
