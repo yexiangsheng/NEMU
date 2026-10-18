@@ -27,7 +27,7 @@ void init_proc()
   switch_boot_pcb();
 
   // NTerm 作为批处理系统的第一个程序: 程序结束后由 SYS_exit 再次拉起 nterm
-  naive_uload(NULL, "/bin/menu"); // TODO(测试): 验证 WaitEvent/yield 修复后改回 /bin/nterm
+  naive_uload(NULL, "/bin/nterm");
 
   Log("Initializing processes...");
 
