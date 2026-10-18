@@ -107,8 +107,8 @@ int _gettimeofday(struct timeval *tv, struct timezone *tz)
 
 int _execve(const char *fname, char *const argv[], char *const envp[])
 {
-  _exit(SYS_execve);
-  return 0;
+  // 成功时不返回(内核里 naive_uload 直接跳去新程序的入口)
+  return _syscall_(SYS_execve, (intptr_t)fname, (intptr_t)argv, (intptr_t)envp);
 }
 
 // Syscalls below are not used in Nanos-lite.

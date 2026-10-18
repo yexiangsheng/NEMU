@@ -1,5 +1,6 @@
 #include <common.h>
 #include <fs.h>
+#include <proc.h>
 #include <sys/time.h>
 #include "syscall.h"
 
@@ -40,7 +41,19 @@ static int sys_close(int fd)
 
 static int sys_exit(int status)
 {
+  /* 批处理系统: 程序结束后不关机, 重新拉起 /bin/nterm,
+   * 让用户选择下一个要运行的程序 */
+  naive_uload(NULL, "/bin/nterm");
   halt(status); // never returns
+}
+
+/* man 2 execve: 结束当前程序, 加载并运行 fname 指定的新程序.
+ * 成功时不返回(当前程序镜像被覆盖); 只有加载失败才会返回 -1.
+ * argv/envp 的传递暂不支持, 忽略. */
+static int sys_execve(const char *fname, char *const argv[], char *const envp[])
+{
+  naive_uload(NULL, fname);
+  return -1; // naive_uload 成功时不返回, 能到这里说明加载失败
 }
 
 static int sys_yield(void)
@@ -116,7 +129,8 @@ static void strace_buf(const void *buf, size_t len)
 }
 
 // 打印一行跟踪的前半段 "[时间] name(args"
-// 注意: SYS_exit 的 handler 会 halt, 永远走不到末尾的 "= 返回值", 属预期
+// 注意: SYS_exit(转去重新拉起程序)和加载成功的 SYS_execve都不会返回,
+// 走不到末尾的 "= 返回值", 属预期
 static void strace_begin(uintptr_t id, uintptr_t a, uintptr_t b, uintptr_t c)
 {
   const char *name = (id < LENGTH(syscall_name)) ? syscall_name[id] : NULL;
@@ -148,6 +162,10 @@ static void strace_begin(uintptr_t id, uintptr_t a, uintptr_t b, uintptr_t c)
     break;
   case SYS_brk:
     printf("incr=0x%x", a);
+    break;
+  case SYS_execve: // (fname, argv, envp): fname 是路径字符串, 打印内容而非指针
+    strace_str((const char *)a);
+    printf(", argv@0x%x, envp@0x%x", b, c);
     break;
   case SYS_yield:
   case SYS_getpid:
@@ -198,6 +216,9 @@ void do_syscall(Context *c)
     break;
   case SYS_brk:
     c->GPRx = sys_brk(a[1]);
+    break;
+  case SYS_execve:
+    c->GPRx = sys_execve((const char *)a[1], (char *const *)a[2], (char *const *)a[3]);
     break;
   case SYS_gettimeofday:
     c->GPRx = sys_gettimeofdy((struct timeval *)a[1], (struct timezone *)a[2]);
