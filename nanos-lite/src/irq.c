@@ -9,7 +9,8 @@ static Context *do_event(Event e, Context *c)
   switch (e.event)
   {
   case EVENT_YIELD:
-    yield();
+    // 注意不能在这里调 yield(): yield() 本身就是 ecall(a7=-1),
+    // 会导致 EVENT_YIELD -> yield() -> EVENT_YIELD 的无限递归, 直到栈溢出砸穿程序镜像
     break;
   case EVENT_SYSCALL:
     do_syscall(c);
