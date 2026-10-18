@@ -24,14 +24,27 @@ static void sh_prompt() {
 }
 
 static void sh_handle_cmd(const char *cmd) {
+  // term->keypress 返回的行自带尾部 '\n', 先剥掉行尾空白
+  char name[128];
+  int i = 0;
+  while (cmd[i] != '\0' && i < (int)sizeof(name) - 1) {
+    name[i] = cmd[i];
+    i++;
+  }
+  name[i] = '\0';
+  while (i > 0 && (name[i - 1] == '\n' || name[i - 1] == '\r' || name[i - 1] == ' ')) {
+    name[--i] = '\0';
+  }
+  if (i == 0) return; // 空行: 直接回到提示符
+
   // 把键入的命令作为新程序执行; 参数传递暂不支持, 整行只当作程序名
   // PATH=/bin: 键入 menu 即可, 不必写 /bin/menu
   // overwrite = 0: Navy native 上不覆盖已有的 PATH(已指向 native 程序目录),
   //                保证 native 与 NEMU 上行为一致
   setenv("PATH", "/bin", 0);
-  char *argv[] = { (char *)cmd, NULL };
-  execvp(cmd, argv);
-  sh_printf("Cannot exec %s - check the path and try again.\n", cmd);
+  char *argv[] = { name, NULL };
+  execvp(name, argv);
+  sh_printf("Cannot exec %s - check the path and try again.\n", name);
 }
 
 void builtin_sh_run() {
