@@ -200,7 +200,9 @@ Context *do_syscall(Context *c)
   {
   case SYS_exit:
     c = sys_exit();
+#ifdef CONFIG_STRACE
     switched = 1;
+#endif
     break;
   case SYS_yield:
     c->GPRx = sys_yield();
@@ -225,7 +227,9 @@ Context *do_syscall(Context *c)
     break;
   case SYS_execve:
     c = sys_execve(c);
+#ifdef CONFIG_STRACE
     switched = 1;
+#endif
     break;
   case SYS_gettimeofday:
     c->GPRx = sys_gettimeofdy((struct timeval *)a[1], (struct timezone *)a[2]);
