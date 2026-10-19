@@ -218,7 +218,7 @@ void SDL_SoftStretch(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_
 {
   assert(src && dst);
   assert(dst->format->BitsPerPixel == src->format->BitsPerPixel);
-  assert(dst->format->BitsPerPixel == 8);
+  assert(dst->format->BitsPerPixel == 8 || dst->format->BitsPerPixel == 32);
 
   int x = (srcrect == NULL ? 0 : srcrect->x);
   int y = (srcrect == NULL ? 0 : srcrect->y);
@@ -237,11 +237,42 @@ void SDL_SoftStretch(SDL_Surface *src, SDL_Rect *srcrect, SDL_Surface *dst, SDL_
     rect.w = w;
     rect.h = h;
     SDL_BlitSurface(src, &rect, dst, dstrect);
+    return;
   }
-  else
+
+  // 最近邻缩放:目标像素 (i,j) 取源像素 (x + i*w/dw, y + j*h/dh)
+  int dx = dstrect->x, dy = dstrect->y;
+  int dw = dstrect->w, dh = dstrect->h; // 未裁剪的目标尺寸,用于比例映射
+
+  // 裁剪目标矩形到 dst 边界,被裁掉的行列按比例跳过对应的源像素
+  int ioff = 0, joff = 0;
+  if (dx < 0) { ioff = -dx; dw += dx; dx = 0; }
+  if (dy < 0) { joff = -dy; dh += dy; dy = 0; }
+  if (dx + dw > dst->w) dw = dst->w - dx;
+  if (dy + dh > dst->h) dh = dst->h - dy;
+  if (dw <= 0 || dh <= 0) { dstrect->w = dstrect->h = 0; return; }
+
+  int bpp = dst->format->BytesPerPixel;
+  for (int j = 0; j < dh; j++)
   {
-    assert(0);
+    int sy = y + (j + joff) * h / dstrect->h;
+    uint8_t *srow = src->pixels + (size_t)sy * src->pitch + (size_t)x * bpp;
+    uint8_t *drow = dst->pixels + (size_t)(dy + j) * dst->pitch + (size_t)dx * bpp;
+    if (bpp == 1)
+    {
+      for (int i = 0; i < dw; i++)
+        drow[i] = srow[(i + ioff) * w / dstrect->w];
+    }
+    else
+    {
+      for (int i = 0; i < dw; i++)
+        ((uint32_t *)drow)[i] = ((uint32_t *)srow)[(i + ioff) * w / dstrect->w];
+    }
   }
+  dstrect->x = dx;
+  dstrect->y = dy;
+  dstrect->w = dw;
+  dstrect->h = dh;
 }
 
 void SDL_SetPalette(SDL_Surface *s, int flags, SDL_Color *colors, int firstcolor, int ncolors)
