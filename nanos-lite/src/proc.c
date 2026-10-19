@@ -29,15 +29,22 @@ void context_kload(PCB *p, void (*entry)(void *), void *arg)
   p->cp = kcontext(p->as.area, entry, arg);
 }
 
+void context_uload(PCB *p, const char *filename)
+{
+  p->as.area = (Area){heap.end, heap.end + STACK_SIZE};
+  p->cp->GPRx = (uintptr_t)heap.end;
+  p->cp = ucontext(&(p->as), p->as.area, (void *)filename);
+}
+
 void init_proc()
 {
-  context_kload(&pcb[0], hello_fun, (void *)1L);
-  context_kload(&pcb[1], hello_fun, (void *)2L);
+  // context_kload(&pcb[0], hello_fun, (void *)1L);
+  context_uload(&pcb[1], "/bin/bird");
 
   switch_boot_pcb();
 
-  // 临时: 用 menu 验证多道程序调度(menu 的 SDL_WaitEvent 会持续 _yield)
-  naive_uload(NULL, "/bin/menu");
+  // NTerm 作为批处理系统的第一个程序: 程序结束后由 SYS_exit 再次拉起 nterm
+  naive_uload(NULL, "/bin/nterm");
 
   Log("Initializing processes...");
 
