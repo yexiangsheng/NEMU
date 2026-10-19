@@ -25,9 +25,15 @@ static uint32_t frame_us = 0; // 一帧对应的微秒数
 static uint32_t next_us = 0;  // 下一次供帧时刻(与 NDL_GetTicks 同为微秒域, 用有符号差比较以容忍回绕)
 static int max_frames = 1;    // 环形缓冲能容纳的帧数(供帧落后量的上限, 超过即放弃补帧)
 
-// 恢复播放时先垫一半缓冲的帧数: NEMU 里渲染一帧要几百毫秒墙钟且内部无泵点,
-// 靠这段存量 + 渲染结束后的补帧(最多垫满整个缓冲)吸收渲染间隙
-#define PREFILL_DIV 2
+// 恢复播放时先垫若干帧再按节拍供帧: NEMU 里渲染一帧要几百毫秒墙钟且帧内无泵点,
+// 靠这段存量 + 渲染结束后的补帧(最多垫满整个缓冲)吸收渲染间隙。
+// native 不预填: shim 的 /dev/sb 管道只有 64KB, 预填超过容量会把主线程
+// 按阻塞写语义卡住; 且 native 有宿主 SDL 回调线程持续拉取, 无需垫底。
+#ifdef __GLIBC__
+#define PREFILL_FRAMES() 0
+#else
+#define PREFILL_FRAMES() (max_frames / 2)
+#endif
 
 int SDL_OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained) {
   SDL_AudioSpec spec = *desired;
@@ -66,9 +72,9 @@ void SDL_PauseAudio(int pause_on) {
   if (!audio_opened)
     return;
   audio_paused = pause_on;
-  // 恢复播放时把供帧时刻拨回 PREFILL 帧之前: 下一次泵调用会立即连发若干帧垫缓冲,
+  // 恢复播放时把供帧时刻拨回预填帧数之前: 下一次泵调用会立即连发若干帧垫缓冲,
   // 用这段存量吸收两次泵调用之间(NEMU 里渲染一帧的几百毫秒)的主机消费
-  next_us = NDL_GetTicks() - (uint64_t)(max_frames / PREFILL_DIV) * frame_us;
+  next_us = NDL_GetTicks() - (uint64_t)PREFILL_FRAMES() * frame_us;
 }
 
 // 音频泵本体, 供 event.c / timer.c / video.c 的调用点驱动; 不进 SDL 头文件, 调用方 extern 声明

@@ -204,24 +204,53 @@ int NDL_QueryAudio()
   return 0;
 }
 
-#else // native 构建: 没有 mmio 设备, 静音空实现
+#else // native 构建: 按 Nanos-lite 约定走设备文件
+// libos 的 native shim(libos/src/native.cpp) 已实现这两个设备:
+//   /dev/sb    = 一条管道, 宿主 SDL2 的音频回调线程从管道读 PCM 播放
+//   /dev/sbctl = 写 12 字节(freq,channels,samples)初始化; 读返回管道空闲字节数(十进制文本!)
+
+static int sb_fd = -1, sbctl_fd = -1;
 
 void NDL_OpenAudio(int freq, int channels, int samples)
 {
+  if (sb_fd < 0)
+  {
+    sb_fd = open("/dev/sb", 0);
+    sbctl_fd = open("/dev/sbctl", 0);
+  }
+  int args[3] = {freq, channels, samples};
+  write(sbctl_fd, args, sizeof(args)); // shim 收到后打开宿主音频并开始拉取
 }
 
 void NDL_CloseAudio()
 {
+  // shim 未提供关闭入口, 保持设备打开即可(管道空了回调自然输出静音)
 }
 
 int NDL_PlayAudio(void *buf, int len)
 {
-  return 0;
+  // 约定写 /dev/sb 阻塞到全部写入; shim 的管道是 O_NONBLOCK, 满时短写/报 EAGAIN,
+  // 循环重试即等效阻塞语义(宿主 SDL 回调线程在另一线程持续消费管道)
+  int done = 0;
+  while (done < len)
+  {
+    int n = write(sb_fd, (uint8_t *)buf + done, len - done);
+    if (n > 0)
+      done += n;
+    else
+      usleep(1000); // 管道满: 等待主机回调消费
+  }
+  return len;
 }
 
 int NDL_QueryAudio()
 {
-  return 0;
+  char buf[16];
+  int n = read(sbctl_fd, buf, sizeof(buf) - 1);
+  if (n <= 0)
+    return 0;
+  buf[n] = '\0';
+  return atoi(buf); // shim 用 snprintf 写入的是十进制文本, 不是二进制 int
 }
 
 #endif
