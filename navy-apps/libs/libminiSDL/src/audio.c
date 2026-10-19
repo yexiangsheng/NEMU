@@ -1,6 +1,7 @@
 #include <NDL.h>
 #include <SDL.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -11,18 +12,73 @@
 static uint16_t rd16(const uint8_t *p) { uint16_t v; memcpy(&v, p, 2); return v; }
 static uint32_t rd32(const uint8_t *p) { uint32_t v; memcpy(&v, p, 4); return v; }
 
+// ---------- 单线程音频泵 ----------
+// 真实 SDL 在独立线程里反复回调用户的 audio callback; miniSDL 没有线程,
+// 改为"泵": 事件轮询/等待/延时这些让出点(见 event.c/timer.c 里的 audio_pump 调用)
+// 按一帧(samples 个采样)的时长节奏调用 callback, 把产生的 PCM 经 NDL 送进 NEMU,
+// 由 NEMU 侧的主机线程真正播放。供帧按时间节拍进行, 与 NEMU 的消费速率天然同步。
+static SDL_AudioSpec audio_spec; // 打开设备时采用的规格(即回调用户时的参数)
+static int audio_opened = 0;
+static int audio_paused = 1; // SDL1.2 语义: 打开后默认暂停, 等应用调 SDL_PauseAudio(0)
+static uint8_t *frame_buf = NULL;
+static int frame_bytes = 0;   // 一帧字节数 = samples * channels * 2
+static uint32_t frame_us = 0; // 一帧对应的微秒数
+static uint32_t next_us = 0;  // 下一次供帧时刻(与 NDL_GetTicks 同为微秒域, 用有符号差比较以容忍回绕)
+
 int SDL_OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained) {
-  // 返回 0 假装成功:bird 的 BirdMain 里 SOUND_OpenAudio 失败(返回值 < 0)会直接退出,
-  // 必须让它以为打开了音频,后续音频 API 全是空操作即可(无音效运行)
-  UNIMPL(0);
+  SDL_AudioSpec spec = *desired;
+  // NEMU 主机侧固定 16 位有符号交错样本, 其余参数原样透传
+  spec.format = AUDIO_S16SYS;
+  // 一帧不能超过流缓冲大小(NEMU 主机回调对 len 有 assert), 超了就压 samples
+  int max_samples = 0x10000 / (spec.channels * 2);
+  if (spec.samples > max_samples)
+    spec.samples = max_samples;
+  frame_bytes = spec.samples * spec.channels * 2;
+  spec.size = frame_bytes;
+  frame_buf = malloc(frame_bytes);
+  assert(frame_buf);
+  NDL_OpenAudio(spec.freq, spec.channels, spec.samples);
+  audio_spec = spec;
+  audio_opened = 1;
+  audio_paused = 1;
+  frame_us = (uint32_t)((uint64_t)spec.samples * 1000000 / spec.freq);
+  next_us = NDL_GetTicks();
+  if (obtained)
+    *obtained = spec;
+  fprintf(stderr, "SDL_OpenAudio: %d Hz, %d ch, %d samples/frame (%d bytes, %d us)\n",
+          spec.freq, spec.channels, spec.samples, frame_bytes, (int)frame_us);
+  return 0;
 }
 
 void SDL_CloseAudio() {
-  UNIMPL();
+  if (!audio_opened)
+    return;
+  audio_opened = 0;
+  free(frame_buf);
+  frame_buf = NULL;
+  NDL_CloseAudio();
 }
 
 void SDL_PauseAudio(int pause_on) {
-  UNIMPL();
+  if (!audio_opened)
+    return;
+  audio_paused = pause_on;
+  next_us = NDL_GetTicks(); // (恢复)播放时从当前时刻起供帧, 不补暂停期间的帧
+}
+
+// 音频泵本体, 供 event.c / timer.c 的让出点调用; 不进 SDL 头文件, 调用方 extern 声明
+void audio_pump(void) {
+  if (!audio_opened || audio_paused || frame_us == 0)
+    return;
+  uint32_t now = NDL_GetTicks();
+  // 落后太多(断点/长时间阻塞后)不再补帧, 直接对齐当前时刻, 避免冲爆环形缓冲
+  if ((int32_t)(now - next_us) > 4 * (int32_t)frame_us)
+    next_us = now;
+  while ((int32_t)(now - next_us) >= 0) {
+    audio_spec.callback(audio_spec.userdata, frame_buf, frame_bytes);
+    NDL_PlayAudio(frame_buf, frame_bytes);
+    next_us += frame_us;
+  }
 }
 
 void SDL_MixAudio(uint8_t *dst, uint8_t *src, uint32_t len, int volume) {

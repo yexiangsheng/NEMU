@@ -103,6 +103,74 @@ void NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h)
   close(fb);
 }
 
+// ---------- audio ----------
+// NEMU 音频设备(nemu/src/device/audio.c)直接 mmio 访问:
+//   寄存器组 0xa0000200(0x18 字节): [0]=freq [1]=channels [2]=samples
+//                                    [3]=sbuf_size [4]=init [5]=count
+//   流缓冲   0xa1200000, 环形, 大小 0x10000(CONFIG_SB_SIZE)
+// 协议要点(RTFSC 得出):
+//   * 写 init 非 0: NEMU 打开主机音频, 此后每次回调拉 samples*channels*2 字节
+//   * 写 count=N:   表示"追加了 N 字节待播", 主机消费 min(N, 拉取量) 并递减 count
+//   * 读 count:     副作用是先把 count 改成 SB_SIZE 再返回 —— 会毁掉 NEMU 侧记账,
+//                   且永远只能读到 SB_SIZE, 客机绝不能读它!
+//   * 流缓冲的读指针在 NEMU 内部维护, 客机只维护自己的写指针, 两侧按同一速率推进
+#ifndef __GLIBC__ // NEMU 环境: 应用运行在 M 模式, 直接访问 mmio 合法
+
+#define AUDIO_REG_BASE 0xa0000200
+#define AUDIO_SBUF_BASE 0xa1200000
+#define AUDIO_SB_SIZE 0x10000 // = NEMU 的 CONFIG_SB_SIZE; reg_sbuf_size 从未被 NEMU 写入(恒 0), 读不到真实值
+
+enum { AREG_FREQ, AREG_CHANNELS, AREG_SAMPLES, AREG_SBUF_SIZE, AREG_INIT, AREG_COUNT };
+
+static int audio_inited = 0; // init 只写一次: 重复写只会让 NEMU 重复打开主机音频
+static uint32_t sbuf_w = 0;  // 客机侧环形写指针; 关闭再打开不清零, 保持与 NEMU 读指针对齐
+
+static inline void audio_reg_write(int reg, uint32_t val)
+{
+  *(volatile uint32_t *)(AUDIO_REG_BASE + reg * 4) = val;
+}
+
+void NDL_OpenAudio(int freq, int channels, int samples)
+{
+  audio_reg_write(AREG_FREQ, freq);
+  audio_reg_write(AREG_CHANNELS, channels);
+  audio_reg_write(AREG_SAMPLES, samples);
+  audio_reg_write(AREG_COUNT, 0); // 清残留计数, 避免主机空拉旧数据
+  if (!audio_inited)
+  {
+    audio_reg_write(AREG_INIT, 1); // NEMU 打开主机音频并开始拉取
+    audio_inited = 1;
+  }
+}
+
+void NDL_CloseAudio()
+{
+  // 框架没有提供真正的"关闭"入口: 清零计数即可, 主机拉不到数据自然输出静音
+  audio_reg_write(AREG_COUNT, 0);
+}
+
+int NDL_PlayAudio(void *buf, int len)
+{
+  // 环形写入: 先填到环尾, 回绕部分从环头继续
+  uint32_t first = AUDIO_SB_SIZE - sbuf_w;
+  if (first > (uint32_t)len)
+    first = len;
+  memcpy((uint8_t *)AUDIO_SBUF_BASE + sbuf_w, buf, first);
+  memcpy((void *)AUDIO_SBUF_BASE, (uint8_t *)buf + first, len - first);
+  sbuf_w = (sbuf_w + len) % AUDIO_SB_SIZE;
+  audio_reg_write(AREG_COUNT, len); // 绝对值"授权 N 字节", 主机最多消费这么多
+  return len;
+}
+
+int NDL_QueryAudio()
+{
+  // 不能读 reg_count: 一读就把 NEMU 侧记账毁成 SB_SIZE(见上), 也永远读到 SB_SIZE。
+  // miniSDL 的音频泵用时间节拍供帧, 不依赖此查询; 返回 0 表示"无积压"。
+  return 0;
+}
+
+#else // native 构建: 没有 mmio 设备, 静音空实现
+
 void NDL_OpenAudio(int freq, int channels, int samples)
 {
 }
@@ -120,6 +188,8 @@ int NDL_QueryAudio()
 {
   return 0;
 }
+
+#endif
 
 int NDL_Init(uint32_t flags)
 {

@@ -10,6 +10,8 @@ extern void _yield(void); // libos 提供:陷入内核让出 CPU
 static void idle_yield(void) { _yield(); }
 #endif
 
+extern void audio_pump(void); // audio.c: 单线程音频泵, 事件循环是它的驱动点之一
+
 #define keyname(k) #k,
 
 static const char *keyname[] = {
@@ -43,11 +45,15 @@ static int read_event(SDL_Event *ev) {
 }
 
 int SDL_PollEvent(SDL_Event *ev) {
+  audio_pump(); // 游戏主循环高频走到这里, 足以按帧节奏驱动音频
   return read_event(ev);
 }
 
 int SDL_WaitEvent(SDL_Event *event) {
-  while (!read_event(event)) idle_yield(); // 无事件时让出 CPU,避免空转
+  while (!read_event(event)) { // 无事件时泵音频并让出 CPU,避免空转
+    audio_pump();
+    idle_yield();
+  }
   return 1;
 }
 

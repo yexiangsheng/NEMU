@@ -9,6 +9,8 @@ extern void _yield(void); // libos 提供:陷入内核让出 CPU
 static void idle_yield(void) { _yield(); }
 #endif
 
+extern void audio_pump(void); // audio.c: 单线程音频泵, 延时等待是它的驱动点之一
+
 SDL_TimerID SDL_AddTimer(uint32_t interval, SDL_NewTimerCallback callback, void *param) {
   UNIMPL(NULL);
 }
@@ -22,8 +24,10 @@ uint32_t SDL_GetTicks() {
 }
 
 void SDL_Delay(uint32_t ms) {
-  // NDL_GetTicks 返回微秒,SDL 接口约定毫秒;等待期间让出 CPU
+  // NDL_GetTicks 返回微秒,SDL 接口约定毫秒;等待期间泵音频并让出 CPU
   uint32_t end = NDL_GetTicks() + ms * 1000;
-  while (NDL_GetTicks() < end)
+  while (NDL_GetTicks() < end) {
+    audio_pump();
     idle_yield();
+  }
 }
