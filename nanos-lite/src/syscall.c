@@ -193,7 +193,9 @@ Context *do_syscall(Context *c)
   strace_begin(a[0], a[1], a[2], a[3]); // 前半段: name(args
 #endif
 
+#ifdef CONFIG_STRACE
   int switched = 0; // exit/execve 换走了上下文, 调用方拿不到"返回值"
+#endif
   switch (a[0])
   {
   case SYS_exit:
