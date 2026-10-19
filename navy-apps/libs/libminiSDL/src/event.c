@@ -11,6 +11,10 @@ static const char *keyname[] = {
   _KEYS(keyname)
 };
 
+// 每个按键的按下状态,下标即 SDLK_ 枚举值(与 keysym.sym 同源),
+// pal 把 SDL_GetScancodeFromKey 宏定义为恒等映射,正好直接用它做下标
+static uint8_t keystate[sizeof(keyname) / sizeof(keyname[0])];
+
 int SDL_PushEvent(SDL_Event *ev) {
   UNIMPL(0);
 }
@@ -25,6 +29,7 @@ static int read_event(SDL_Event *ev) {
     if (strcmp(keyname[i], key) == 0) {
       ev->key.type = (type[1] == 'd') ? SDL_KEYDOWN : SDL_KEYUP;
       ev->key.keysym.sym = i;
+      keystate[i] = (type[1] == 'd'); // 同步维护按下状态,供 SDL_GetKeyState 查询
       return 1;
     }
   }
@@ -45,5 +50,6 @@ int SDL_PeepEvents(SDL_Event *ev, int numevents, int action, uint32_t mask) {
 }
 
 uint8_t* SDL_GetKeyState(int *numkeys) {
-  UNIMPL(NULL);
+  if (numkeys != NULL) *numkeys = sizeof(keystate);
+  return keystate;
 }
