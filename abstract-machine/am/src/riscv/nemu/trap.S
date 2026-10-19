@@ -56,7 +56,8 @@ __am_asm_trap:
   li a0, (1 << 17)
   or t1, t1, a0
   csrw mstatus, t1
-
+  
+  # change context if 
   mv a0, sp
   call __am_irq_handle
 
