@@ -70,7 +70,7 @@ bool cte_init(Context *(*handler)(Event, Context *))
   return true;
 }
 
-// Create proc
+// Create kernel proc
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg)
 {
   // 在内核栈栈顶放置一个上下文:scheduler 换到它后经 mret 跳到 entry 执行,
