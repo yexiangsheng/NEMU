@@ -6,9 +6,11 @@
 
 #define STACK_SIZE (8 * PGSIZE)
 
-typedef union {
+typedef union
+{
   uint8_t stack[STACK_SIZE] PG_ALIGN;
-  struct {
+  struct
+  {
     Context *cp;
     AddrSpace as;
     // we do not free memory, so use `max_brk' to determine when to call _map()
@@ -17,7 +19,9 @@ typedef union {
 } PCB;
 
 extern PCB *current;
+Context *schedule(Context *prev);
 
+void context_kload(PCB *p, void (*entry)(void *), void *arg);
 void naive_uload(PCB *pcb, const char *filename);
 
 #endif

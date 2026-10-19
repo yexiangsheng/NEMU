@@ -1,4 +1,5 @@
 #include <common.h>
+#include <proc.h>
 #include "syscall.h"
 
 void do_syscall(Context *c); // implemented in syscall.c
@@ -11,6 +12,7 @@ static Context *do_event(Event e, Context *c)
   case EVENT_YIELD:
     // 注意不能在这里调 yield(): yield() 本身就是 ecall(a7=-1),
     // 会导致 EVENT_YIELD -> yield() -> EVENT_YIELD 的无限递归, 直到栈溢出砸穿程序镜像
+    c = schedule(c);
     break;
   case EVENT_SYSCALL:
     do_syscall(c);

@@ -16,14 +16,24 @@ void hello_fun(void *arg)
   int j = 1;
   while (1)
   {
-    Log("Hello World from Nanos-lite with arg '%p' for the %dth time!", (uintptr_t)arg, j);
+    Log("Hello World from Nanos-lite with arg '%d' for the %dth time!", (int)(uintptr_t)arg, j);
     j++;
     yield();
   }
 }
 
+// 把内核线程的上下文建在传入 PCB 自己的内核栈上
+void context_kload(PCB *p, void (*entry)(void *), void *arg)
+{
+  p->as.area = (Area){p->stack, p->stack + STACK_SIZE};
+  p->cp = kcontext(p->as.area, entry, arg);
+}
+
 void init_proc()
 {
+  context_kload(&pcb[0], hello_fun, (void *)1L);
+  context_kload(&pcb[1], hello_fun, (void *)2L);
+
   switch_boot_pcb();
 
   // NTerm 作为批处理系统的第一个程序: 程序结束后由 SYS_exit 再次拉起 nterm
@@ -36,5 +46,14 @@ void init_proc()
 
 Context *schedule(Context *prev)
 {
-  return NULL;
+  current->cp = prev;
+  // 在 boot(承载 NTerm)与两个 hello 内核线程之间三方轮转:
+  // NTerm 的 SYS_yield 会经内核 yield() 到这里,必须能让 boot 转回来
+  if (current == &pcb_boot)
+    current = &pcb[0];
+  else if (current == &pcb[0])
+    current = &pcb[1];
+  else
+    current = &pcb_boot;
+  return current->cp;
 }
