@@ -2,7 +2,7 @@
 #include <proc.h>
 #include "syscall.h"
 
-void do_syscall(Context *c); // implemented in syscall.c
+Context *do_syscall(Context *c); // implemented in syscall.c
 
 // Syscall event request
 static Context *do_event(Event e, Context *c)
@@ -15,7 +15,7 @@ static Context *do_event(Event e, Context *c)
     c = schedule(c);
     break;
   case EVENT_SYSCALL:
-    do_syscall(c);
+    c = do_syscall(c); // execve/exit 可能换成新程序的上下文
     break;
   default:
     panic("Unhandled event ID = %d", e.event);

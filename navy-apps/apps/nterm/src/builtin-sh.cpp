@@ -24,27 +24,38 @@ static void sh_prompt() {
 }
 
 static void sh_handle_cmd(const char *cmd) {
-  // term->keypress 返回的行自带尾部 '\n', 先剥掉行尾空白
-  char name[128];
+  // 拷贝整行(上限 128 字节), 剥掉行尾 '\n' 等空白
+  char line[128];
   int i = 0;
-  while (cmd[i] != '\0' && i < (int)sizeof(name) - 1) {
-    name[i] = cmd[i];
+  while (cmd[i] != '\0' && i < (int)sizeof(line) - 1) {
+    line[i] = cmd[i];
     i++;
   }
-  name[i] = '\0';
-  while (i > 0 && (name[i - 1] == '\n' || name[i - 1] == '\r' || name[i - 1] == ' ')) {
-    name[--i] = '\0';
+  line[i] = '\0';
+  while (i > 0 && (line[i - 1] == '\n' || line[i - 1] == '\r' || line[i - 1] == ' ')) {
+    line[--i] = '\0';
   }
   if (i == 0) return; // 空行: 直接回到提示符
 
-  // 把键入的命令作为新程序执行; 参数传递暂不支持, 整行只当作程序名
+  // 按空格切分命令行: 第一个词是程序名, 其余是传给它的参数
+  // (如 "pal --skip" -> argv = {"pal", "--skip"}), 就地把空格改写为 '\0'
+  char *argv[16];
+  int argc = 0;
+  for (char *p = line; *p != '\0' && argc < (int)sizeof(argv) - 1;) {
+    while (*p == ' ') *p++ = '\0'; // 跳过(并终结)连续空格
+    if (*p == '\0') break;
+    argv[argc++] = p;
+    while (*p != '\0' && *p != ' ') p++;
+  }
+  if (argc == 0) return;
+  argv[argc] = NULL;
+
   // PATH=/bin: 键入 menu 即可, 不必写 /bin/menu
   // overwrite = 0: Navy native 上不覆盖已有的 PATH(已指向 native 程序目录),
   //                保证 native 与 NEMU 上行为一致
   setenv("PATH", "/bin", 0);
-  char *argv[] = { name, NULL };
-  execvp(name, argv);
-  sh_printf("Cannot exec %s - check the path and try again.\n", name);
+  execvp(argv[0], argv);
+  sh_printf("Cannot exec %s - check the path and try again.\n", argv[0]);
 }
 
 void builtin_sh_run() {

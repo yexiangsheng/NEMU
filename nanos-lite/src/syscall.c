@@ -39,22 +39,21 @@ static int sys_close(int fd)
   return fs_close(fd);
 }
 
-static int sys_exit(int status)
+/* 批处理系统: 程序结束后不关机, 把 NTerm 拉起到当前进程的 PCB 上。
+ * 旧程序镜像已被 context_uload 覆盖, 必须返回新上下文, 不能回到旧程序 */
+static Context *sys_exit(void)
 {
-  /* 批处理系统: 程序结束后不关机, 重新拉起 /bin/nterm,
-   * 让用户选择下一个要运行的程序 */
-  naive_uload(NULL, "/bin/nterm");
-  halt(status); // never returns
+  context_uload(current, "/bin/nterm", NULL, NULL);
+  return current->cp;
 }
 
-/* man 2 execve: 结束当前程序, 加载并运行 fname 指定的新程序.
- * 成功时不返回(当前程序镜像被覆盖); 只有加载失败才会返回 -1.
- * argv/envp 的传递暂不支持, 忽略. */
-static int sys_execve(const char *fname, char *const argv[], char *const envp[])
+/* man 2 execve: 结束当前程序, 加载并运行 fname 指定的新程序, 带 argv/envp。
+ * pcb 参数传 current: execve 的语义是"当前进程换新程序",
+ * 新上下文记在当前 PCB 上, 对 schedule() 的轮转完全透明 */
+static Context *sys_execve(Context *c)
 {
-  // naive_uload(NULL, fname);
-  context_uload(NULL, fname, argv, envp);
-  return -1; // naive_uload 成功时不返回, 能到这里说明加载失败
+  context_uload(current, (const char *)c->GPR2, (char *const *)c->GPR3, (char *const *)c->GPR4);
+  return current->cp; // 成功时不返回旧程序; 加载失败会在 fs_open 处 panic
 }
 
 static int sys_yield(void)
@@ -180,7 +179,9 @@ static void strace_begin(uintptr_t id, uintptr_t a, uintptr_t b, uintptr_t c)
 
 #endif // CONFIG_STRACE
 
-void do_syscall(Context *c)
+/* 返回值: 正常情况下原样返回 c(内核把返回值写进 c->GPRx);
+ * SYS_exit/SYS_execve 则换成了新程序的上下文 —— 旧程序已被覆盖, 回不去了 */
+Context *do_syscall(Context *c)
 {
   uintptr_t a[4];
   a[0] = c->GPR1;
@@ -192,10 +193,12 @@ void do_syscall(Context *c)
   strace_begin(a[0], a[1], a[2], a[3]); // 前半段: name(args
 #endif
 
+  int switched = 0; // exit/execve 换走了上下文, 调用方拿不到"返回值"
   switch (a[0])
   {
   case SYS_exit:
-    c->GPRx = sys_exit(a[1]);
+    c = sys_exit();
+    switched = 1;
     break;
   case SYS_yield:
     c->GPRx = sys_yield();
@@ -219,7 +222,8 @@ void do_syscall(Context *c)
     c->GPRx = sys_brk(a[1]);
     break;
   case SYS_execve:
-    c->GPRx = sys_execve((const char *)a[1], (char *const *)a[2], (char *const *)a[3]);
+    c = sys_execve(c);
+    switched = 1;
     break;
   case SYS_gettimeofday:
     c->GPRx = sys_gettimeofdy((struct timeval *)a[1], (struct timezone *)a[2]);
@@ -229,6 +233,11 @@ void do_syscall(Context *c)
   }
 
 #ifdef CONFIG_STRACE
-  printf(") = 0x%x\n", c->GPRx); // 后半段: 返回值接在同一行
+  if (switched)
+    printf(") = <switched to new context>\n"); // 换了程序, 不会有返回值
+  else
+    printf(") = 0x%x\n", c->GPRx); // 后半段: 返回值接在同一行
 #endif
+
+  return c;
 }

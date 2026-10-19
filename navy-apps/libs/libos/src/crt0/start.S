@@ -32,8 +32,8 @@ _start:
   jal call_main
 
 #elif defined(__riscv)
-  mv a7, sp
-  mv s0, a0
+  // 参数块地址由内核经 ucontext 放在 a0(AM 的 GPRx), 原样传给 call_main
+  mv s0, zero
   jal call_main
 
 #elif defined(__ISA_LOONGARCH32R__)
