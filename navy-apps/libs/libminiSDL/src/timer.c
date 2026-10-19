@@ -20,6 +20,7 @@ int SDL_RemoveTimer(SDL_TimerID id) {
 }
 
 uint32_t SDL_GetTicks() {
+  audio_pump(); // 游戏循环频繁查时间, 是密度最好的泵点之一
   return NDL_GetTicks() / 1000; // NDL 约定微秒,timer-test 按 us 使用;SDL 接口约定毫秒
 }
 

@@ -64,6 +64,8 @@ void SDL_FillRect(SDL_Surface *dst, SDL_Rect *dstrect, uint32_t color)
 
 void SDL_UpdateRect(SDL_Surface *s, int x, int y, int w, int h)
 {
+  extern void audio_pump(void); // audio.c: 每次刷屏即一帧渲染结束, 顺手泵音频
+  audio_pump();
   if (w == 0 || h == 0) { x = y = 0; w = s->w; h = s->h; } // 0 表示整屏刷新
   if (x < 0) { w += x; x = 0; }
   if (y < 0) { h += y; y = 0; }

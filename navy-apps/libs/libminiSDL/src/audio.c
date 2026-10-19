@@ -24,6 +24,11 @@ static uint8_t *frame_buf = NULL;
 static int frame_bytes = 0;   // 一帧字节数 = samples * channels * 2
 static uint32_t frame_us = 0; // 一帧对应的微秒数
 static uint32_t next_us = 0;  // 下一次供帧时刻(与 NDL_GetTicks 同为微秒域, 用有符号差比较以容忍回绕)
+static int max_frames = 1;    // 环形缓冲能容纳的帧数(供帧落后量的上限, 超过即放弃补帧)
+
+// 恢复播放时先垫一半缓冲的帧数: NEMU 里渲染一帧要几百毫秒墙钟且内部无泵点,
+// 靠这段存量 + 渲染结束后的补帧(最多垫满整个缓冲)吸收渲染间隙
+#define PREFILL_DIV 2
 
 int SDL_OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained) {
   SDL_AudioSpec spec = *desired;
@@ -35,6 +40,7 @@ int SDL_OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained) {
     spec.samples = max_samples;
   frame_bytes = spec.samples * spec.channels * 2;
   spec.size = frame_bytes;
+  max_frames = 0x10000 / frame_bytes;
   frame_buf = malloc(frame_bytes);
   assert(frame_buf);
   NDL_OpenAudio(spec.freq, spec.channels, spec.samples);
@@ -63,22 +69,28 @@ void SDL_PauseAudio(int pause_on) {
   if (!audio_opened)
     return;
   audio_paused = pause_on;
-  next_us = NDL_GetTicks(); // (恢复)播放时从当前时刻起供帧, 不补暂停期间的帧
+  // 恢复播放时把供帧时刻拨回 PREFILL 帧之前: 下一次泵调用会立即连发若干帧垫缓冲,
+  // 用这段存量吸收两次泵调用之间(NEMU 里渲染一帧的几百毫秒)的主机消费
+  next_us = NDL_GetTicks() - (uint64_t)(max_frames / PREFILL_DIV) * frame_us;
 }
 
-// 音频泵本体, 供 event.c / timer.c 的让出点调用; 不进 SDL 头文件, 调用方 extern 声明
+// 音频泵本体, 供 event.c / timer.c / video.c 的调用点驱动; 不进 SDL 头文件, 调用方 extern 声明
+static int pumping = 0; // 防重入: callback 里若又走到泵调用点, 直接跳过, 避免无限递归
 void audio_pump(void) {
-  if (!audio_opened || audio_paused || frame_us == 0)
+  if (pumping || !audio_opened || audio_paused || frame_us == 0)
     return;
+  pumping = 1;
   uint32_t now = NDL_GetTicks();
-  // 落后太多(断点/长时间阻塞后)不再补帧, 直接对齐当前时刻, 避免冲爆环形缓冲
-  if ((int32_t)(now - next_us) > 4 * (int32_t)frame_us)
+  // 落后量超过环形缓冲容量(断点/长阻塞后)就放弃补帧, 直接对齐当前时刻, 避免冲爆缓冲
+  int32_t behind = (int32_t)(now - next_us); // 有符号差: 泵超前时为负, 回绕也正确
+  if (behind > (int32_t)((uint64_t)max_frames * frame_us))
     next_us = now;
   while ((int32_t)(now - next_us) >= 0) {
     audio_spec.callback(audio_spec.userdata, frame_buf, frame_bytes);
     NDL_PlayAudio(frame_buf, frame_bytes);
     next_us += frame_us;
   }
+  pumping = 0;
 }
 
 void SDL_MixAudio(uint8_t *dst, uint8_t *src, uint32_t len, int volume) {

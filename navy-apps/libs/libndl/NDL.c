@@ -118,7 +118,10 @@ void NDL_DrawRect(uint32_t *pixels, int x, int y, int w, int h)
 
 #define AUDIO_REG_BASE 0xa0000200
 #define AUDIO_SBUF_BASE 0xa1200000
-#define AUDIO_SB_SIZE 0x10000 // = NEMU 的 CONFIG_SB_SIZE; reg_sbuf_size 从未被 NEMU 写入(恒 0), 读不到真实值
+// = NEMU 的 CONFIG_SB_SIZE; reg_sbuf_size 从未被 NEMU 写入(恒 0), 读不到真实值。
+// 64KB 只够 0.37s 音频, 而 NEMU 里渲染一帧就要几百毫秒墙钟, 缓冲会被打空(音乐断续),
+// 已把 NEMU 的 CONFIG_SB_SIZE 调到 256KB(约 1.5s), 两处需保持一致
+#define AUDIO_SB_SIZE 0x40000
 
 enum { AREG_FREQ, AREG_CHANNELS, AREG_SAMPLES, AREG_SBUF_SIZE, AREG_INIT, AREG_COUNT };
 
