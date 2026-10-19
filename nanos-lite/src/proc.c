@@ -35,6 +35,7 @@ void context_kload(PCB *p, void (*entry)(void *), void *arg)
 void context_uload(PCB *p, const char *filename)
 {
   uintptr_t entry = loader(p, filename); // 先加载 ELF 拿到真实入口, 不能把文件名当地址
+  Log("Jump to entry = %p", entry);
   // 用户栈从内核堆顶向下切一块: heap.end 是 RAM 顶(0x88000000), 往上放整块越界;
   // 向下切还保证多次调用时各进程栈不重叠
   heap.end = (char *)heap.end - STACK_SIZE;
@@ -51,7 +52,8 @@ void init_proc()
 
   // NTerm 作为批处理系统的第一个程序: 程序结束后由 SYS_exit 再次拉起 nterm。
   // 没有 VME 时整个系统只允许这一个用户程序, 多道程序用上面的内核线程演示
-  naive_uload(NULL, "/bin/nterm");
+  context_uload(&pcb[0], "/bin/hello");
+  context_uload(&pcb[1], "/bin/bird");
 
   // Log("Initializing processes...");
 
