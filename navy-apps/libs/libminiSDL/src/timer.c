@@ -1,7 +1,13 @@
 #include <NDL.h>
 #include <SDL.h>
 
+#ifdef __GLIBC__ // native 构建不链 libos,用宿主调度原语代替陷入内核
+#include <sched.h>
+static void idle_yield(void) { sched_yield(); }
+#else
 extern void _yield(void); // libos 提供:陷入内核让出 CPU
+static void idle_yield(void) { _yield(); }
+#endif
 
 SDL_TimerID SDL_AddTimer(uint32_t interval, SDL_NewTimerCallback callback, void *param) {
   UNIMPL(NULL);
@@ -19,5 +25,5 @@ void SDL_Delay(uint32_t ms) {
   // NDL_GetTicks 返回微秒,SDL 接口约定毫秒;等待期间让出 CPU
   uint32_t end = NDL_GetTicks() + ms * 1000;
   while (NDL_GetTicks() < end)
-    _yield();
+    idle_yield();
 }

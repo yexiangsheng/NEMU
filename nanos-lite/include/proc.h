@@ -23,7 +23,7 @@ Context *schedule(Context *prev);
 uintptr_t loader(PCB *pcb, const char *filename);
 
 void context_kload(PCB *p, void (*entry)(void *), void *arg);
-void context_uload(PCB *p, const char *filename);
+void context_uload(PCB *p, const char *filename, char *const argv[], char *const envp[]);
 void naive_uload(PCB *pcb, const char *filename);
 
 #endif

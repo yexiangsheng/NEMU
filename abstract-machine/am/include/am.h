@@ -80,7 +80,7 @@ extern "C"
   void protect(AddrSpace *as);
   void unprotect(AddrSpace *as);
   void map(AddrSpace *as, void *vaddr, void *paddr, int prot);
-  Context *ucontext(AddrSpace *as, Area kstack, void *entry);
+  Context *ucontext(AddrSpace *as, Area kstack, void *entry, void *arg);
 
   // ---------------------- MPE: Multi-Processing ----------------------
   bool mpe_init(void (*entry)());

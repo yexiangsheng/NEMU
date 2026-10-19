@@ -79,12 +79,14 @@ void map(AddrSpace *as, void *va, void *pa, int prot)
 {
 }
 
-Context *ucontext(AddrSpace *as, Area kstack, void *entry)
+Context *ucontext(AddrSpace *as, Area kstack, void *entry, void *arg)
 {
   // Context 放在栈顶一格: trap.S 不保存/恢复 gpr[2],
   // 而是用 Context 的地址 + CONTEXT_SIZE 推算出 sp, 因此首次调度时 sp = kstack.end
   Context *c = (Context *)kstack.end - 1;
   *c = (Context){0};
+  c->pdir = (vme_enable ? as->ptr : NULL); // 地址空间,供 __am_switch 切换 satp
+  c->GPRx = (uintptr_t)arg;                // a0 = 参数块地址,crt0 的 call_main 由此取 argc/argv/envp
   c->mepc = (uintptr_t)entry;
   c->mstatus = 0x1800; // MPP = M:mret 之后仍处于机器模式
 

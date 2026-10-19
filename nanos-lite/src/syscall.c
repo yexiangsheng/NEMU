@@ -52,7 +52,8 @@ static int sys_exit(int status)
  * argv/envp 的传递暂不支持, 忽略. */
 static int sys_execve(const char *fname, char *const argv[], char *const envp[])
 {
-  naive_uload(NULL, fname);
+  // naive_uload(NULL, fname);
+  context_uload(NULL, fname, argv, envp);
   return -1; // naive_uload 成功时不返回, 能到这里说明加载失败
 }
 

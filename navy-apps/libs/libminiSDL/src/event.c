@@ -2,7 +2,13 @@
 #include <SDL.h>
 #include <string.h>
 
+#ifdef __GLIBC__ // native 构建不链 libos,用宿主调度原语代替陷入内核
+#include <sched.h>
+static void idle_yield(void) { sched_yield(); }
+#else
 extern void _yield(void); // libos 提供:陷入内核让出 CPU
+static void idle_yield(void) { _yield(); }
+#endif
 
 #define keyname(k) #k,
 
@@ -41,7 +47,7 @@ int SDL_PollEvent(SDL_Event *ev) {
 }
 
 int SDL_WaitEvent(SDL_Event *event) {
-  while (!read_event(event)) _yield(); // 无事件时让出 CPU,避免空转
+  while (!read_event(event)) idle_yield(); // 无事件时让出 CPU,避免空转
   return 1;
 }
 

@@ -208,5 +208,7 @@ void naive_uload(PCB *pcb, const char *filename)
 {
   uintptr_t entry = loader(pcb, filename);
   Log("Jump to entry = %p", entry);
-  ((void (*)())entry)();
+  // 新 crt0 的 call_main 会解析 a0 指向的参数块, 给一个最小的空块(argc=0)
+  static uintptr_t empty_args[] = {0, 0, 0}; // argc=0, argv 的 NULL, envp 的 NULL
+  ((void (*)(uintptr_t *))entry)(empty_args);
 }
