@@ -52,8 +52,8 @@ void init_proc()
 
   // NTerm 作为批处理系统的第一个程序: 程序结束后由 SYS_exit 再次拉起 nterm。
   // 没有 VME 时整个系统只允许这一个用户程序, 多道程序用上面的内核线程演示
-  context_uload(&pcb[0], "/bin/hello");
-  // context_uload(&pcb[1], "/bin/bird");
+  // context_uload(&pcb[0], "/bin/hello");
+  context_uload(&pcb[1], "/bin/bird");
 
   // Log("Initializing processes...");
 
