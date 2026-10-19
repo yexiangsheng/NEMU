@@ -31,7 +31,10 @@ int main()
   Log("Finish initialization");
 
 #ifdef HAS_CTE
-  yield();
+  // boot 上下文作为"闲逛"上下文:被调度回来时立刻再次让出,
+  // 让轮转在 pcb_boot / 内核线程 / 用户程序之间持续进行
+  while (1)
+    yield();
 #endif
 
   panic("Should not reach here");
