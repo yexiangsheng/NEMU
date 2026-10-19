@@ -129,14 +129,15 @@ static int audio_inited = 0; // init 只写一次: 重复写只会让 NEMU 重�
 static uint32_t sbuf_w = 0;  // 客机侧环形写指针; 关闭再打开不清零, 保持与 NEMU 读指针对齐
 
 // count 记账: NEMU 侧 count 是"覆盖式绝对值"(写什么它就是什么, 回调里逐次递减),
-// 而客机不能读它(读的副作用会把它毁成 SB_SIZE)。好在主机消费速率恒定
-// (每次回调拉 samples*channels*2 字节, 周期 samples/freq 秒, 由 SDL 保证),
-// 于是用时间推算"已消费量", 每次提交时全量重写"剩余量 = 提交总量 - 已消费量"。
-// 相位误差最多 ±1 帧, 且每次全量重写都会自校正, 不会累计。
-static uint64_t audio_submitted = 0; // 累计提交字节数
-static uint32_t audio_open_us = 0;   // 音频开启时刻(推算消费量的基准)
-static uint32_t audio_last_us = 0;   // 上次取时, 检测 NDL_GetTicks 的 32 位微秒回绕
-static uint32_t host_frame_us = 0;   // 主机单次拉取的周期
+// 而客机不能读它(读的副作用会把它毁成 SB_SIZE)。好在主机行为完全确定:
+// 每 host_frame_us 微秒回调一次, 每次消费 min(host_frame_bytes, count) 并把 count
+// 减掉。于是客机维护一个"影子 count"精确镜像它: 每次提交前, 先按流逝时间推算
+// 出这段时间主机回调了多少次, 把影子 count 递减掉, 再加上新提交的字节, 全量写回。
+// 注意主机只在 count>0 时消费, 所以"打开后到首次提交之间"的空转不会产生消费,
+// 影子模型天然正确; 相位误差(±1 帧)每次同步都会被吸收, 不累计。
+static uint32_t shadow_count = 0; // 镜像 NEMU 侧 count 的当前值
+static uint32_t last_sync_us = 0; // 上次同步影子的时刻(按整周期推进, 保留相位余数)
+static uint32_t host_frame_us = 0;    // 主机单次拉取的周期
 static uint32_t host_frame_bytes = 0; // 主机单次拉取的字节数 = samples*channels*2
 
 static inline void audio_reg_write(int reg, uint32_t val)
@@ -151,8 +152,8 @@ void NDL_OpenAudio(int freq, int channels, int samples)
   audio_reg_write(AREG_SAMPLES, samples);
   host_frame_us = (uint32_t)((uint64_t)samples * 1000000 / freq);
   host_frame_bytes = samples * channels * 2;
-  audio_submitted = 0;
-  audio_open_us = audio_last_us = NDL_GetTicks();
+  shadow_count = 0;
+  last_sync_us = NDL_GetTicks();
   audio_reg_write(AREG_COUNT, 0); // 清残留计数, 避免主机空拉旧数据
   if (!audio_inited)
   {
@@ -164,6 +165,7 @@ void NDL_OpenAudio(int freq, int channels, int samples)
 void NDL_CloseAudio()
 {
   // 框架没有提供真正的"关闭"入口: 清零计数即可, 主机拉不到数据自然输出静音
+  shadow_count = 0;
   audio_reg_write(AREG_COUNT, 0);
 }
 
@@ -176,20 +178,22 @@ int NDL_PlayAudio(void *buf, int len)
   memcpy((uint8_t *)AUDIO_SBUF_BASE + sbuf_w, buf, first);
   memcpy((void *)AUDIO_SBUF_BASE, (uint8_t *)buf + first, len - first);
   sbuf_w = (sbuf_w + len) % AUDIO_SB_SIZE;
-  audio_submitted += len;
 
   uint32_t now = NDL_GetTicks();
-  if ((int32_t)(now - audio_last_us) < 0) // 32 位微秒回绕(约 71 分钟): 重置推算基准
+  if ((int32_t)(now - last_sync_us) < 0) // 32 位微秒回绕(约 71 分钟): 重置同步基准
   {
-    audio_open_us = now;
-    audio_submitted = len;
+    shadow_count = 0;
+    last_sync_us = now;
   }
-  audio_last_us = now;
-  uint64_t consumed = (uint64_t)(now - audio_open_us) / host_frame_us * host_frame_bytes;
-  uint64_t pending = audio_submitted > consumed ? audio_submitted - consumed : 0;
-  if (pending > AUDIO_SB_SIZE) // 超过缓冲容量的部分注定覆盖, 只授权能存下的
-    pending = AUDIO_SB_SIZE;
-  audio_reg_write(AREG_COUNT, (uint32_t)pending);
+  // 推算自上次同步以来主机回调的次数, 同步影子 count(主机每次消费 min(hfb, count))
+  uint64_t ncb = (uint64_t)(now - last_sync_us) / host_frame_us;
+  uint64_t consumed = ncb * host_frame_bytes;
+  shadow_count = shadow_count > consumed ? shadow_count - consumed : 0;
+  last_sync_us += ncb * host_frame_us; // 按整周期推进, 余数留给下次, 不丢相位
+  shadow_count += len;
+  if (shadow_count > AUDIO_SB_SIZE) // 超过缓冲容量的部分注定覆盖, 只授权能存下的
+    shadow_count = AUDIO_SB_SIZE;
+  audio_reg_write(AREG_COUNT, shadow_count);
   return len;
 }
 
