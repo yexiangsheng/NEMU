@@ -33,28 +33,12 @@ static uint8_t *sbuf = NULL;
 static uint32_t *audio_base = NULL;
 static uint32_t sbuf_r = 0;
 
-// TEMP 临时探针: 验证客机喂数据后删除
-#include <stdio.h>
-static uint64_t dbg_cb = 0, dbg_played = 0, dbg_starve = 0, dbg_submit = 0, dbg_writes = 0, dbg_lastw = 0;
-__attribute__((destructor)) static void dbg_report(void)
-{
-  if (dbg_cb)
-    fprintf(stderr, "[audio-probe] callbacks=%llu played=%llu starved=%llu submitted=%llu writes=%llu lastw=%llu\n",
-            (unsigned long long)dbg_cb, (unsigned long long)dbg_played,
-            (unsigned long long)dbg_starve, (unsigned long long)dbg_submit,
-            (unsigned long long)dbg_writes, (unsigned long long)dbg_lastw);
-}
-
 void audio_callback(void *userdata, Uint8 *stream, int len)
 {
   SDL_LockAudio();
   assert(len >= 0 && len <= CONFIG_SB_SIZE);
   uint32_t count = audio_base[reg_count];
   uint32_t n = len < count ? len : count;
-  dbg_cb++;
-  dbg_played += n;
-  if (n < (uint32_t)len)
-    dbg_starve += len - n;
   uint32_t tail = CONFIG_SB_SIZE - sbuf_r;
   uint32_t first = n < tail ? n : tail;
   memcpy(stream, sbuf + sbuf_r, first);
@@ -70,12 +54,6 @@ void audio_callback(void *userdata, Uint8 *stream, int len)
 
 static void audio_io_handler(uint32_t offset, int len, bool is_write)
 {
-  if (is_write && offset == 4 * reg_count)
-  {
-    dbg_writes++; // TEMP 探针: count 写次数与写入值
-    dbg_lastw = audio_base[reg_count];
-    dbg_submit += dbg_lastw;
-  }
   if (is_write && offset == 4 * reg_init && audio_base[reg_init])
   {
     SDL_AudioSpec s = {};

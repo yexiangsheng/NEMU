@@ -1,7 +1,6 @@
 #include <NDL.h>
 #include <SDL.h>
 #include <stdint.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -51,8 +50,6 @@ int SDL_OpenAudio(SDL_AudioSpec *desired, SDL_AudioSpec *obtained) {
   next_us = NDL_GetTicks();
   if (obtained)
     *obtained = spec;
-  fprintf(stderr, "SDL_OpenAudio: %d Hz, %d ch, %d samples/frame (%d bytes, %d us)\n",
-          spec.freq, spec.channels, spec.samples, frame_bytes, (int)frame_us);
   return 0;
 }
 
