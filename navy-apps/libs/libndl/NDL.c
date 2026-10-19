@@ -128,6 +128,17 @@ enum { AREG_FREQ, AREG_CHANNELS, AREG_SAMPLES, AREG_SBUF_SIZE, AREG_INIT, AREG_C
 static int audio_inited = 0; // init 只写一次: 重复写只会让 NEMU 重复打开主机音频
 static uint32_t sbuf_w = 0;  // 客机侧环形写指针; 关闭再打开不清零, 保持与 NEMU 读指针对齐
 
+// count 记账: NEMU 侧 count 是"覆盖式绝对值"(写什么它就是什么, 回调里逐次递减),
+// 而客机不能读它(读的副作用会把它毁成 SB_SIZE)。好在主机消费速率恒定
+// (每次回调拉 samples*channels*2 字节, 周期 samples/freq 秒, 由 SDL 保证),
+// 于是用时间推算"已消费量", 每次提交时全量重写"剩余量 = 提交总量 - 已消费量"。
+// 相位误差最多 ±1 帧, 且每次全量重写都会自校正, 不会累计。
+static uint64_t audio_submitted = 0; // 累计提交字节数
+static uint32_t audio_open_us = 0;   // 音频开启时刻(推算消费量的基准)
+static uint32_t audio_last_us = 0;   // 上次取时, 检测 NDL_GetTicks 的 32 位微秒回绕
+static uint32_t host_frame_us = 0;   // 主机单次拉取的周期
+static uint32_t host_frame_bytes = 0; // 主机单次拉取的字节数 = samples*channels*2
+
 static inline void audio_reg_write(int reg, uint32_t val)
 {
   *(volatile uint32_t *)(AUDIO_REG_BASE + reg * 4) = val;
@@ -138,6 +149,10 @@ void NDL_OpenAudio(int freq, int channels, int samples)
   audio_reg_write(AREG_FREQ, freq);
   audio_reg_write(AREG_CHANNELS, channels);
   audio_reg_write(AREG_SAMPLES, samples);
+  host_frame_us = (uint32_t)((uint64_t)samples * 1000000 / freq);
+  host_frame_bytes = samples * channels * 2;
+  audio_submitted = 0;
+  audio_open_us = audio_last_us = NDL_GetTicks();
   audio_reg_write(AREG_COUNT, 0); // 清残留计数, 避免主机空拉旧数据
   if (!audio_inited)
   {
@@ -161,7 +176,20 @@ int NDL_PlayAudio(void *buf, int len)
   memcpy((uint8_t *)AUDIO_SBUF_BASE + sbuf_w, buf, first);
   memcpy((void *)AUDIO_SBUF_BASE, (uint8_t *)buf + first, len - first);
   sbuf_w = (sbuf_w + len) % AUDIO_SB_SIZE;
-  audio_reg_write(AREG_COUNT, len); // 绝对值"授权 N 字节", 主机最多消费这么多
+  audio_submitted += len;
+
+  uint32_t now = NDL_GetTicks();
+  if ((int32_t)(now - audio_last_us) < 0) // 32 位微秒回绕(约 71 分钟): 重置推算基准
+  {
+    audio_open_us = now;
+    audio_submitted = len;
+  }
+  audio_last_us = now;
+  uint64_t consumed = (uint64_t)(now - audio_open_us) / host_frame_us * host_frame_bytes;
+  uint64_t pending = audio_submitted > consumed ? audio_submitted - consumed : 0;
+  if (pending > AUDIO_SB_SIZE) // 超过缓冲容量的部分注定覆盖, 只授权能存下的
+    pending = AUDIO_SB_SIZE;
+  audio_reg_write(AREG_COUNT, (uint32_t)pending);
   return len;
 }
 

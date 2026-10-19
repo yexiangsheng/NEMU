@@ -57,7 +57,7 @@ __am_asm_trap:
   or t1, t1, a0
   csrw mstatus, t1
   
-  # change context if 
+  # change context if handle is schedule
   mv a0, sp
   call __am_irq_handle
 
