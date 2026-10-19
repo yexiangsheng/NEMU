@@ -14,7 +14,7 @@ void printf_context(Context *c)
          c->mcause, c->mstatus, c->mepc);
 }
 
-// Interrupt request
+// Interrupt request and Change proc by call kcontext
 Context *__am_irq_handle(Context *c)
 {
   if (user_handler)
@@ -64,15 +64,23 @@ bool cte_init(Context *(*handler)(Event, Context *))
   // initialize exception entry
   asm volatile("csrw mtvec, %0" : : "r"(__am_asm_trap));
 
-  // regi ster event handler
+  // register event handler
   user_handler = handler;
 
   return true;
 }
 
+// Create proc
 Context *kcontext(Area kstack, void (*entry)(void *), void *arg)
 {
-  return NULL;
+  // 在内核栈栈顶放置一个上下文:scheduler 换到它后经 mret 跳到 entry 执行,
+  // entry 的参数按 riscv 调用约定放 a0(GPRx)
+  Context *c = (Context *)kstack.end - 1;
+  *c = (Context){0};
+  c->GPRx = (uintptr_t)arg;
+  c->mepc = (uintptr_t)entry;
+  c->mstatus = 0x1800; // MPP = M:mret 之后仍处于机器模式
+  return c;
 }
 
 // trap function
