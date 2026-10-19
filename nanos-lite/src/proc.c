@@ -29,25 +29,31 @@ void context_kload(PCB *p, void (*entry)(void *), void *arg)
   p->cp = kcontext(p->as.area, entry, arg);
 }
 
+// 加载用户程序 ELF 并创建可被调度的上下文。
+// 注意: Navy 所有程序都链接在 0x83000000, 没实现 VME(分页)之前,
+// 多个用户程序(含 naive_uload 的程序)镜像会互相覆盖, 同一时刻只能存在一个!
 void context_uload(PCB *p, const char *filename)
 {
-  p->as.area = (Area){heap.end, heap.end + STACK_SIZE};
-  p->cp->GPRx = (uintptr_t)heap.end;
-  p->cp = ucontext(&(p->as), p->as.area, (void *)filename);
+  uintptr_t entry = loader(p, filename); // 先加载 ELF 拿到真实入口, 不能把文件名当地址
+  // 用户栈从内核堆顶向下切一块: heap.end 是 RAM 顶(0x88000000), 往上放整块越界;
+  // 向下切还保证多次调用时各进程栈不重叠
+  heap.end = (char *)heap.end - STACK_SIZE;
+  p->as.area = (Area){heap.end, (char *)heap.end + STACK_SIZE};
+  p->cp = ucontext(&p->as, p->as.area, (void *)entry);
 }
 
 void init_proc()
 {
-  // context_kload(&pcb[0], hello_fun, (void *)1L);
-  context_uload(&pcb[0], "/bin/bird");
-  context_uload(&pcb[1], "/bin/hello");
+  context_kload(&pcb[0], hello_fun, (void *)1L);
+  context_kload(&pcb[1], hello_fun, (void *)2L);
 
   switch_boot_pcb();
 
-  // NTerm 作为批处理系统的第一个程序: 程序结束后由 SYS_exit 再次拉起 nterm
+  // NTerm 作为批处理系统的第一个程序: 程序结束后由 SYS_exit 再次拉起 nterm。
+  // 没有 VME 时整个系统只允许这一个用户程序, 多道程序用上面的内核线程演示
   naive_uload(NULL, "/bin/nterm");
 
-  Log("Initializing processes...");
+  // Log("Initializing processes...");
 
   // load program here
 }

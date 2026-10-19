@@ -26,7 +26,8 @@
 //}
 
 // loader() 最终实现
-static uintptr_t loader(PCB *pcb, const char *filename)
+// 非 static: context_uload 也要用它加载 ELF(proc.h 有声明)
+uintptr_t loader(PCB *pcb, const char *filename)
 {
   int fd = fs_open(filename, 0, 0);
   Elf32_Ehdr ehdr;
