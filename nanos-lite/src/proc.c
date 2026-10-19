@@ -36,8 +36,8 @@ void init_proc()
 
   switch_boot_pcb();
 
-  // NTerm 作为批处理系统的第一个程序: 程序结束后由 SYS_exit 再次拉起 nterm
-  naive_uload(NULL, "/bin/nterm");
+  // 临时: 用 menu 验证多道程序调度(menu 的 SDL_WaitEvent 会持续 _yield)
+  naive_uload(NULL, "/bin/menu");
 
   Log("Initializing processes...");
 
