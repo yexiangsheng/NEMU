@@ -108,10 +108,11 @@ void context_uload(PCB *p, const char *filename, char *const argv[], char *const
 
 void init_proc()
 {
-  // [验证用] exec-test: 以 argv[1]=5 起跑, 每轮 execl 自身并 +1, 验证参数传递
-  char *const test_argv[] = {"/bin/exec-test", "5", NULL};
-  char *const test_envp[] = {NULL};
-  context_uload(&pcb[0], "/bin/exec-test", test_argv, test_envp);
+  // 开机即进仙剑(--skip 跳过商标动画): 顺带验证 execve 的参数传递链路;
+  // 退出后 sys_exit 会把 NTerm 拉起到 pcb[0] 上, 之后从內建 Shell 启动其它程序
+  char *const pal_argv[] = {"/bin/pal", "--skip", NULL};
+  char *const pal_envp[] = {NULL};
+  context_uload(&pcb[0], "/bin/pal", pal_argv, pal_envp);
 
   // 一个 hello 内核线程: 用户程序 yield 时穿插打印, 证明调度仍在轮转
   context_kload(&pcb[1], hello_fun, (void *)1L);
