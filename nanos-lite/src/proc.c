@@ -9,6 +9,7 @@ PCB *current = NULL;
 void switch_boot_pcb()
 {
   current = &pcb_boot;
+  yield();
 }
 
 void hello_fun(void *arg)
@@ -96,7 +97,7 @@ void init_proc()
   // argv[0] 按惯例是程序路径; 测试用不到环境变量, 给一个仅含 NULL 的空 envp
   char *const pal_argv[] = {"/bin/pal", "--skip", NULL};
   char *const pal_envp[] = {NULL};
-  context_uload(&pcb[1], "/bin/pal", pal_argv, pal_envp);
+  context_uload(&pcb[0], "/bin/pal", pal_argv, pal_envp);
 }
 
 Context *schedule(Context *prev)
