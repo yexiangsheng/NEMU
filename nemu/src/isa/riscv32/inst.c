@@ -143,6 +143,8 @@ static word_t *csr_ptr(uint32_t addr)
     return &cpu.csr.mepc;
   case 0x342:
     return &cpu.csr.mcause;
+  case 0x180:
+    return &cpu.csr.satp;
   default:
     panic("unsupported CSR address = 0x%03x", addr);
   }

@@ -120,12 +120,14 @@ void map(AddrSpace *as, void *va, void *pa, int prot) {
   }
 }
 
-Context* ucontext(AddrSpace *as, Area kstack, void *entry) {
+Context* ucontext(AddrSpace *as, Area kstack, void *entry, void *arg) {
   Context *c = (Context*)kstack.end - 1;
 
   __am_get_example_uc(c);
   AM_REG_PC(&c->uc) = (uintptr_t)entry;
-  AM_REG_SP(&c->uc) = (uintptr_t)USER_SPACE.end;
+  // 进程入口栈 = 内核摆好的 argc/argv/envp 参数块(SysV ABI,crt0 从 rsp 取它);
+  // 原来硬编码 USER_SPACE.end 未映射, 新进程首次压栈就会段错误
+  AM_REG_SP(&c->uc) = (uintptr_t)arg;
 
   int ret = sigemptyset(&(c->uc.uc_sigmask)); // enable interrupt
   assert(ret == 0);

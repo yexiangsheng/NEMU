@@ -24,6 +24,7 @@ typedef struct
   vaddr_t mepc;   // pc when interrupt
   vaddr_t mtvec;  // pc pointer to fault entry
   word_t mcause;  // interrupt cause
+  word_t satp;    // mode + ASID + PPN
 } CSR;
 
 typedef struct
@@ -39,6 +40,5 @@ typedef struct
   uint32_t inst;
 } MUXDEF(CONFIG_RV64, riscv64_ISADecodeInfo, riscv32_ISADecodeInfo);
 
-#define isa_mmu_check(vaddr, len, type) (MMU_DIRECT)
-
+// #define isa_mmu_check(vaddr, len, type) (MMU_DIRECT)
 #endif

@@ -12,5 +12,6 @@
 
 void *new_page(size_t);
 void set_zero(Elf32_Word begin, Elf32_Word end);
+void *pg_alloc(size_t);
 
 #endif

@@ -2,6 +2,8 @@
 #include <nemu.h>
 #include <klib.h>
 
+// Sv32 页表项标志位(PTE_V/R/W/X)用框架 riscv.h 里的定义
+
 static AddrSpace kas = {};
 static void *(*pgalloc_usr)(int) = NULL;
 static void (*pgfree_usr)(void *) = NULL;
@@ -30,8 +32,10 @@ bool vme_init(void *(*pgalloc_f)(int), void (*pgfree_f)(void *))
   pgalloc_usr = pgalloc_f;
   pgfree_usr = pgfree_f;
 
+  // malloc a mem PAGSIZE(4KB)
   kas.ptr = pgalloc_f(PGSIZE);
 
+  // 填写内核空间的Page table
   int i;
   for (i = 0; i < LENGTH(segments); i++)
   {
@@ -50,8 +54,12 @@ bool vme_init(void *(*pgalloc_f)(int), void (*pgfree_f)(void *))
 
 void protect(AddrSpace *as)
 {
+  // PTE in kernel space
+  // every proc has a page table by itself
+  // page table in proc heap
   PTE *updir = (PTE *)(pgalloc_usr(PGSIZE));
   as->ptr = updir;
+  // data and text in user space
   as->area = USER_SPACE;
   as->pgsize = PGSIZE;
   // map kernel space
@@ -77,6 +85,23 @@ void __am_switch(Context *c)
 
 void map(AddrSpace *as, void *va, void *pa, int prot)
 {
+  uintptr_t uva = (uintptr_t)va, upa = (uintptr_t)pa;
+  PTE *root = (PTE *)as->ptr;
+
+  // 第一级: VPN1 = va[31:22] 作下标查根表, 每项覆盖 4MB。
+  // 表项无效说明该 4MB 区间还没有二级页表, 通过回调向 Nanos-lite 要一页
+  // (pg_alloc 已保证清零), 挂成非叶子项(只置 V, 不置 R/W/X)
+  PTE *pde = &root[(uva >> 22) & 0x3ff];
+  if (!(*pde & PTE_V))
+  {
+    PTE *pt = pgalloc_usr(PGSIZE);
+    *pde = ((uintptr_t)pt >> 12 << 10) | PTE_V;
+  }
+
+  // 第二级: VPN0 = va[21:12] 作下标查二级表, 叶子项写入目标物理页 PPN。
+  // PA 简化不区分权限, 一律可读可写可执行
+  PTE *pt = (PTE *)((*pde >> 10) << 12);
+  pt[(uva >> 12) & 0x3ff] = (upa >> 12 << 10) | PTE_V | PTE_R | PTE_W | PTE_X;
 }
 
 Context *ucontext(AddrSpace *as, Area kstack, void *entry, void *arg)
