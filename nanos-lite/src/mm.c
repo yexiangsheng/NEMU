@@ -29,13 +29,26 @@ void free_page(void *p)
 
 /* The brk() system call handler. */
 static uintptr_t program_break = 0;
+static uintptr_t break_committed = 0; // 已向页池提交到的堆顶(页对齐)
 
 uintptr_t mm_brk(uintptr_t incr)
 {
-  if (program_break == 0)                  // 首次调用:把堆起点定在内核空闲区开头
-    program_break = (uintptr_t)heap.start; // PA3 无虚存,用户堆与内核共用物理内存
+  // 用户堆必须和 pg_alloc 的页表共用同一个页池, 否则堆起点(=heap.start)会与
+  // 页表本体重叠: PA3 时代堆从 heap.start 线性生长没有冲突, VME 一开,
+  // pg_alloc 同样从 heap.start 起分配页表, 堆一写就把根页表抹了。
+  // 按页提交: break 越过已提交页就继续向页池要新页(与页表互斥, 永不重叠)
+  if (program_break == 0)
+  {
+    program_break = (uintptr_t)new_page(1);
+    break_committed = program_break + PGSIZE;
+  }
   uintptr_t old = program_break;
   program_break += incr; // 返回旧 break = 新增内存的起点(malloc 依赖这一点)
+  while (program_break > break_committed)
+  {
+    new_page(1);
+    break_committed += PGSIZE;
+  }
   return old;
 }
 
