@@ -16,7 +16,6 @@
 #include <isa.h>
 #include <memory/vaddr.h>
 #include <memory/paddr.h>
-#include <stdio.h>
 
 int isa_mmu_check(vaddr_t vaddr, int len, int type)
 {
@@ -45,21 +44,13 @@ paddr_t isa_mmu_translate(vaddr_t vaddr, int len, int type)
   // 第一级: vaddr[31:22] 作下标查根表, 表项指向二级页表(非叶子项只看 V 位)
   word_t pte1 = paddr_read(root + (((vaddr >> 22) & 0x3ff) << 2), 4);
   if (!(pte1 & 1))
-  {
-    fprintf(stderr, "MMU fail(L1): vaddr=0x%08x type=%d satp=0x%08x pte1=0x%08x pc=0x%08x\n",
-            vaddr, type, cpu.csr.satp, pte1, cpu.pc);
     return MEM_RET_FAIL;
-  }
   paddr_t pt2 = ((pte1 >> 10) & 0x3fffff) << 12;
 
   // 第二级: vaddr[21:12] 作下标查二级表, 叶子表项给出目标物理页
   word_t pte0 = paddr_read(pt2 + (((vaddr >> 12) & 0x3ff) << 2), 4);
   if (!(pte0 & 1))
-  {
-    fprintf(stderr, "MMU fail: vaddr=0x%08x type=%d satp=0x%08x pte1=0x%08x pte0=0x%08x\n",
-            vaddr, type, cpu.csr.satp, pte1, pte0);
     return MEM_RET_FAIL;
-  }
   paddr_t paddr = (((pte0 >> 10) & 0x3fffff) << 12) | (vaddr & 0xfff);
 
   // 内核空间是恒等映射: 落在 pmem 里的虚地址, 翻译前后必须相同。
